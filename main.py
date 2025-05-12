@@ -7,24 +7,33 @@ import os
 import platform
 import uuid
 import hashlib
-import qrcode
-import datetime
-import traceback # Para detalles de error
-from openpyxl import load_workbook, Workbook
-from openpyxl.styles import Font, PatternFill, Alignment
-from PIL import ImageFont
+import traceback
+from datetime import datetime
+from io import BytesIO
 
 from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Font, PatternFill, Alignment
+
+import qrcode
 import barcode
 from barcode.writer import ImageWriter
+from PIL import ImageFont
 
 from PySide2 import QtCore, QtGui, QtWidgets
-from PySide2.QtCore import (QCoreApplication, QPropertyAnimation, QDate, QDateTime, 
-                          QMetaObject, QObject, QPoint, QRect, QSize, QTime, QUrl, Qt, QEvent)
-from PySide2.QtGui import (QBrush, QColor, QConicalGradient, QCursor, QFont, QFontDatabase, 
-                         QIcon, QKeySequence, QLinearGradient, QPalette, QPainter, QPixmap, 
-                         QRadialGradient)
+from PySide2.QtCore import (
+    QCoreApplication, QPropertyAnimation, QDate, QDateTime, QMetaObject, 
+    QObject, QPoint, QRect, QSize, QTime, QUrl, Qt, QEvent
+)
+from PySide2.QtGui import (
+    QBrush, QColor, QConicalGradient, QCursor, QFont, QFontDatabase, 
+    QIcon, QKeySequence, QLinearGradient, QPalette, QPainter, QPixmap, QRadialGradient
+)
 from PySide2.QtWidgets import *
+
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.lib.styles import getSampleStyleSheet
 
 # GUI FILE
 from app_modules import *
@@ -113,13 +122,13 @@ class MainWindow(QMainWindow):
             wb = Workbook()
             ws = wb.active
             ws.title = "Trabajos"
-            ws.append(["Código Serial", "Tipo Trabajo", "Referencia", "Número Ticket", 
-                      "Talla", "Color", "Valor", "Total Producido", "Tipo Código", "Ruta Imagen"])
+            ws.append(["Código Serial", "Tipo Trabajo", "Referencia", "Número Ticket",
+                     "Talla", "Color", "Valor", "Total Producido", "Tipo Código", "Ruta Imagen"])
             
             # Create Vales sheet
             vales_ws = wb.create_sheet(title=self.vales_sheet_name)
             vales_ws.append(["ID", "EmpleadoID", "Fecha", "Tipo Trabajo", "Número Ticket",
-                           "Referencia", "Talla", "Color", "Valor", "Total Producido", "Código Serial"])
+                          "Referencia", "Talla", "Color", "Valor", "Total Producido", "Código Serial"])
             
             wb.save(self.excel_path)
         else:
@@ -128,7 +137,7 @@ class MainWindow(QMainWindow):
             if self.vales_sheet_name not in wb.sheetnames:
                 vales_ws = wb.create_sheet(title=self.vales_sheet_name)
                 vales_ws.append(["ID", "EmpleadoID", "Fecha", "Tipo Trabajo", "Número Ticket",
-                               "Referencia", "Talla", "Color", "Valor", "Total Producido", "Código Serial"])
+                              "Referencia", "Talla", "Color", "Valor", "Total Producido", "Código Serial"])
                 wb.save(self.excel_path)
         
         # Connect the save button
@@ -197,7 +206,7 @@ class MainWindow(QMainWindow):
                 # Add to vertical layout
                 self.ui.verticalLayout.addWidget(container)
         
-        # Access the WidgetTabla from UI and setup table inside it
+        # Access the WidgetTabla from UI and setup table inside ac
         if hasattr(self.ui, 'WidgetTabla'):
             # Create table layout
             table_layout = QVBoxLayout(self.ui.WidgetTabla)
@@ -732,42 +741,8 @@ class MainWindow(QMainWindow):
         """
         Agrega un botón ActualizarDB a la interfaz para actualizar los reportes de empleados
         """
-        if not hasattr(self.ui, 'btnActualizarDB'):
-            # Crear el botón
-            self.ui.btnActualizarDB = QPushButton("ActualizarDB")
-            self.ui.btnActualizarDB.clicked.connect(self.update_employee_reports)
-            
-            # Añadir estilos al botón (opcional)
-            self.ui.btnActualizarDB.setMinimumWidth(120)
-            self.ui.btnActualizarDB.setStyleSheet("""
-                QPushButton {
-                    background-color: #3498db;
-                    color: white;
-                    border-radius: 5px;
-                    padding: 5px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background-color: #2980b9;
-                }
-            """)
-            
-            # Añadir el botón a la interfaz
-            # Puedes modificar esta parte según el layout de tu interfaz
-            if hasattr(self.ui, 'verticalLayout'):
-                # Crear un contenedor para el botón
-                button_container = QWidget()
-                button_layout = QHBoxLayout(button_container)
-                button_layout.addStretch()
-                button_layout.addWidget(self.ui.btnActualizarDB)
-                
-                # Añadir el contenedor al layout principal
-                # Puedes ajustar la posición según necesites
-                self.ui.verticalLayout.addWidget(button_container)
-                
-        # Asegurarse de que se importen los módulos necesarios
-        # Añadir estos imports al inicio del archivo si no están ya
-        # from openpyxl.styles import Font, PatternFill, Alignment
+        self.ui.btnActualizarDB.clicked.connect(self.update_employee_reports)
+
     def on_code_type_changed(self, checked):
         """Handle change in code type selection"""
         if checked:
@@ -872,31 +847,165 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Error", f"Error al generar el código de barras:\n{e}")
             return None
 
-    def generate_qr_code(self, serial_code):
-        """Generate and save a QR code image"""
+    def setup_code_generator(self):
+        """
+        Setup the barcode and QR code generator functionality
+        """
+        # Define excel path and create barcode directory if needed
+        self.excel_path = "trabajos_database.xlsx"
+        self.vales_sheet_name = "Vales"  # Sheet name for vales data
+        
+        if not os.path.exists("codes"):
+            os.makedirs("codes")
+        
+        # Create Excel file if it doesn't exist
+        if not os.path.exists(self.excel_path):
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Trabajos"
+            ws.append(["Código Serial", "Tipo Trabajo", "Referencia", "Número Ticket",
+                     "Talla", "Color", "Valor", "Total Producido", "Tipo Código", "Ruta Imagen"])
+            
+            # Create Vales sheet
+            vales_ws = wb.create_sheet(title=self.vales_sheet_name)
+            vales_ws.append(["ID", "EmpleadoID", "Fecha", "Tipo Trabajo", "Número Ticket",
+                          "Referencia", "Talla", "Color", "Valor", "Total Producido", "Código Serial"])
+            
+            wb.save(self.excel_path)
+        else:
+            # Check if Vales sheet exists, if not create it
+            wb = load_workbook(self.excel_path)
+            if self.vales_sheet_name not in wb.sheetnames:
+                vales_ws = wb.create_sheet(title=self.vales_sheet_name)
+                vales_ws.append(["ID", "EmpleadoID", "Fecha", "Tipo Trabajo", "Número Ticket",
+                              "Referencia", "Talla", "Color", "Valor", "Total Producido", "Código Serial"])
+                wb.save(self.excel_path)
+        
+        # Connect the save button
+        self.ui.pushButtonGuardar.clicked.connect(self.on_save_button_clicked)
+        
+        # Add code type selector (radio buttons)
+        self.setup_code_type_selector()
+        
+        # Ensure the QGraphicsView has a scene
+        if not hasattr(self.ui, 'PreviwImage'):
+            print("Warning: PreviwImage not found in UI")
+        elif self.ui.PreviwImage.scene() is None:
+            self.ui.PreviwImage.setScene(QtWidgets.QGraphicsScene())
+    
+    def on_save_button_clicked(self):
+        """Handler for save button click"""
+        # Define required fields and their UI elements
+        required_fields = []
+        
+        # Only add fields that exist in the UI
+        if hasattr(self.ui, 'CampoTipoTrabajo'):
+            required_fields.append((self.ui.CampoTipoTrabajo, "Tipo de Trabajo"))
+        if hasattr(self.ui, 'CampoReferenciaTrabajo'):
+            required_fields.append((self.ui.CampoReferenciaTrabajo, "Referencia"))
+        if hasattr(self.ui, 'CampoNumeroTicket'):
+            required_fields.append((self.ui.CampoNumeroTicket, "Número de Ticket"))
+        if hasattr(self.ui, 'CampoTalla'):
+            required_fields.append((self.ui.CampoTalla, "Talla"))
+        if hasattr(self.ui, 'CampoColor'):
+            required_fields.append((self.ui.CampoColor, "Color"))
+        if hasattr(self.ui, 'CampoValor'):
+            required_fields.append((self.ui.CampoValor, "Valor"))
+        if hasattr(self.ui, 'CampoTotalProducido'):
+            required_fields.append((self.ui.CampoTotalProducido, "Total Producido"))
+        
+        # Validate required fields
+        for field, name in required_fields:
+            if not field.text().strip():
+                QMessageBox.warning(self, "Campos Incompletos", f"El campo {name} es obligatorio.")
+                field.setFocus()
+                return
+        
+        # Get values from UI
+        tipo_trabajo = getattr(self.ui, 'CampoTipoTrabajo').text() if hasattr(self.ui, 'CampoTipoTrabajo') else ""
+        referencia = getattr(self.ui, 'CampoReferenciaTrabajo').text() if hasattr(self.ui, 'CampoReferenciaTrabajo') else ""
+        ticket_number = getattr(self.ui, 'CampoNumeroTicket').text() if hasattr(self.ui, 'CampoNumeroTicket') else ""
+        talla = getattr(self.ui, 'CampoTalla').text() if hasattr(self.ui, 'CampoTalla') else ""
+        color = getattr(self.ui, 'CampoColor').text() if hasattr(self.ui, 'CampoColor') else ""
+        valor = getattr(self.ui, 'CampoValor').text() if hasattr(self.ui, 'CampoValor') else ""
+        total_producido = getattr(self.ui, 'CampoTotalProducido').text() if hasattr(self.ui, 'CampoTotalProducido') else "0"
+        
+        # Generate unique serial code
+        serial_code = f"{ticket_number}-{referencia}-{talla}"
+        
+        # Generate the selected code type
+        if self.current_code_type == "barcode":
+            code_path = self.generate_barcode(serial_code)
+        else:
+            code_path = self.generate_qr_code(serial_code)
+        
+        if not code_path:
+            QMessageBox.critical(self, "Error", "Error al generar el código.")
+            return
+        
+        # Display the code
+        if not self.display_code_image(code_path):
+            return
+        
+        # Save data to Excel
+        if self.save_to_excel(serial_code, code_path):
+            # Create a dictionary of tallas and cantidades (for the PDF)
+            tallas_cantidades = {talla: int(total_producido) if total_producido.isdigit() else 0}
+            
+            # Generate PDF with QR code
+            pdf_path = self.generate_vale_pdf(
+                ticket_number, tipo_trabajo, referencia,
+                tallas_cantidades, color, total_producido, serial_code
+            )
+            
+            # Show success message with both paths
+            QMessageBox.information(
+                self,
+                "Operación Exitosa",
+                f"Código generado: {serial_code}\nTipo: {self.current_code_type.upper()}\n"
+                f"Los datos se han guardado correctamente.\n"
+                f"PDF generado en: {pdf_path}"
+            )
+            
+            # Clear fields
+            for field, _ in required_fields:
+                field.clear()
+            
+            # Focus first field
+            if required_fields:
+                required_fields[0][0].setFocus()
+    
+    def generate_qr_code(self, data):
+        """
+        Generate QR code image
+        
+        Args:
+            data: Data to encode in the QR code
+            
+        Returns:
+            str: Path to the generated QR code image or None if generation fails
+        """
         try:
-            # Create QR code instance
+            # Create filename
+            filename = f"qr_{data.replace('/', '_').replace(' ', '_')}.png"
+            filepath = os.path.join("codes", filename)
+            
+            # Generate QR code
             qr = qrcode.QRCode(
                 version=1,
                 error_correction=qrcode.constants.ERROR_CORRECT_L,
                 box_size=10,
                 border=4,
             )
-            
-            # Add data to QR code
-            qr.add_data(serial_code)
+            qr.add_data(data)
             qr.make(fit=True)
             
-            # Create QR code image
-            img = qr.make_image(fill_color="black", back_color="white")
+            qr_img = qr.make_image(fill_color="black", back_color="white")
+            qr_img.save(filepath)
             
-            # Save QR code as PNG
-            qr_path = f"codes/qr_{serial_code}.png"
-            img.save(qr_path)
-            
-            return qr_path
+            return filepath
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Error al generar el código QR: {str(e)}")
+            print(f"Error generating QR code: {e}")
             return None
     
     def display_code_image(self, image_path):
@@ -929,31 +1038,43 @@ class MainWindow(QMainWindow):
             return False
     
     def save_to_excel(self, serial_code, code_path):
-        """Save data to Excel file"""
-        try:
-            # Get field values
-            tipo_trabajo = self.ui.CampoTipoTrabajo.text().strip() if hasattr(self.ui, 'CampoTipoTrabajo') else ""
-            referencia = self.ui.CampoReferenciaTrabajo.text().strip() if hasattr(self.ui, 'CampoReferenciaTrabajo') else ""
-            num_ticket = self.ui.CampoNumeroTicket.text().strip() if hasattr(self.ui, 'CampoNumeroTicket') else ""
-            talla = self.ui.CampoTalla.text().strip() if hasattr(self.ui, 'CampoTalla') else ""
-            color = self.ui.CampoColor.text().strip() if hasattr(self.ui, 'CampoColor') else ""
-            valor = self.ui.CampoValor.text().strip() if hasattr(self.ui, 'CampoValor') else ""
-            total_producido = self.ui.CampoTotaProducido.text().strip() if hasattr(self.ui, 'CampoTotaProducido') else ""
+        """
+        Save data to Excel file
+        
+        Args:
+            serial_code: Serial code for the generated barcode/QR
+            code_path: Path to the generated code image
             
-            # Load Excel file
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            # Get values from UI
+            tipo_trabajo = getattr(self.ui, 'CampoTipoTrabajo').text() if hasattr(self.ui, 'CampoTipoTrabajo') else ""
+            referencia = getattr(self.ui, 'CampoReferenciaTrabajo').text() if hasattr(self.ui, 'CampoReferenciaTrabajo') else ""
+            ticket_number = getattr(self.ui, 'CampoNumeroTicket').text() if hasattr(self.ui, 'CampoNumeroTicket') else ""
+            talla = getattr(self.ui, 'CampoTalla').text() if hasattr(self.ui, 'CampoTalla') else ""
+            color = getattr(self.ui, 'CampoColor').text() if hasattr(self.ui, 'CampoColor') else ""
+            valor = getattr(self.ui, 'CampoValor').text() if hasattr(self.ui, 'CampoValor') else ""
+            total_producido = getattr(self.ui, 'CampoTotalProducido').text() if hasattr(self.ui, 'CampoTotalProducido') else "0"
+            
+            # Load workbook
             wb = load_workbook(self.excel_path)
-            ws = wb.active
+            ws = wb["Trabajos"]
             
             # Add new row
-            ws.append([serial_code, tipo_trabajo, referencia, num_ticket, 
-                      talla, color, valor, total_producido, self.current_code_type, code_path])
+            ws.append([
+                serial_code, tipo_trabajo, referencia, ticket_number,
+                talla, color, valor, total_producido, 
+                self.current_code_type.upper(), code_path
+            ])
             
-            # Save Excel file
+            # Save workbook
             wb.save(self.excel_path)
-            
             return True
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Error al guardar en Excel: {str(e)}")
+            print(f"Error saving to Excel: {e}")
+            QMessageBox.critical(self, "Error", f"Error al guardar los datos: {e}")
             return False
     
     def find_code_data(self, serial_code):
@@ -1120,8 +1241,8 @@ class MainWindow(QMainWindow):
             required_fields.append((self.ui.CampoColor, "Color"))
         if hasattr(self.ui, 'CampoValor'):
             required_fields.append((self.ui.CampoValor, "Valor"))
-        if hasattr(self.ui, 'CampoTotaProducido'):
-            required_fields.append((self.ui.CampoTotaProducido, "Total Producido"))
+        if hasattr(self.ui, 'CampoTotalProducido'):
+            required_fields.append((self.ui.CampoTotalProducido, "Total Producido"))
         
         # Validate required fields
         for field, name in required_fields:
@@ -1130,16 +1251,26 @@ class MainWindow(QMainWindow):
                 field.setFocus()
                 return
         
+        # Get values from UI
+        tipo_trabajo = getattr(self.ui, 'CampoTipoTrabajo').text() if hasattr(self.ui, 'CampoTipoTrabajo') else ""
+        referencia = getattr(self.ui, 'CampoReferenciaTrabajo').text() if hasattr(self.ui, 'CampoReferenciaTrabajo') else ""
+        ticket_number = getattr(self.ui, 'CampoNumeroTicket').text() if hasattr(self.ui, 'CampoNumeroTicket') else ""
+        talla = getattr(self.ui, 'CampoTalla').text() if hasattr(self.ui, 'CampoTalla') else ""
+        color = getattr(self.ui, 'CampoColor').text() if hasattr(self.ui, 'CampoColor') else ""
+        valor = getattr(self.ui, 'CampoValor').text() if hasattr(self.ui, 'CampoValor') else ""
+        total_producido = getattr(self.ui, 'CampoTotalProducido').text() if hasattr(self.ui, 'CampoTotalProducido') else "0"
+        
         # Generate unique serial code
-        serial_code = self.generate_serial_code()
+        serial_code = f"{ticket_number}-{referencia}-{talla}"
         
         # Generate the selected code type
         if self.current_code_type == "barcode":
             code_path = self.generate_barcode(serial_code)
         else:
             code_path = self.generate_qr_code(serial_code)
-            
+        
         if not code_path:
+            QMessageBox.critical(self, "Error", "Error al generar el código no hay code_path.")
             return
         
         # Display the code
@@ -1148,10 +1279,22 @@ class MainWindow(QMainWindow):
         
         # Save data to Excel
         if self.save_to_excel(serial_code, code_path):
+            # Create a dictionary of tallas and cantidades (for the PDF)
+            tallas_cantidades = {talla: int(total_producido) if total_producido.isdigit() else 0}
+            
+            # Generate PDF with QR code
+            pdf_path = self.generate_vale_pdf(
+                ticket_number, tipo_trabajo, referencia,
+                tallas_cantidades, color, total_producido, code_path
+            )
+            
+            # Show success message with both paths
             QMessageBox.information(
-                self, 
-                "Operación Exitosa", 
-                f"Código generado: {serial_code}\nTipo: {self.current_code_type.upper()}\nLos datos se han guardado correctamente."
+                self,
+                "Operación Exitosa",
+                f"Código generado: {serial_code}\nTipo: {self.current_code_type.upper()}\n"
+                f"Los datos se han guardado correctamente.\n"
+                f"PDF generado en: {pdf_path}"
             )
             
             # Clear fields
@@ -1177,8 +1320,8 @@ class MainWindow(QMainWindow):
             UIFunctions.resetStyle(self, "btn_widgets")
             btnWidget.setStyleSheet(UIFunctions.selectMenu(btnWidget.styleSheet()))
         elif btnWidget.objectName() == "btn_widgets":
-            self.ui.stackedWidget.setCurrentWidget(self.ui.page_widgets)
-            UIFunctions.resetStyle(self, "btn_widgets")
+            self.ui.stackedWidget.setCurrentWidget(self.ui.create_user)
+            UIFunctions.resetStyle(self, "create_user")      
             btnWidget.setStyleSheet(UIFunctions.selectMenu(btnWidget.styleSheet()))
 
     # Window event handlers
@@ -1222,6 +1365,98 @@ class MainWindow(QMainWindow):
     def resizeFunction(self):
         """Log window size on resize"""
         print('Height: ' + str(self.height()) + ' | Width: ' + str(self.width()))
+
+    def generate_vale_pdf(self, ticket_numbers, tipo_trabajo, referencia, tallas_cantidades, color, total_producido, serial_code_path):
+        """
+        Generate a PDF work voucher with multiple tickets on a single page.
+
+        Args:
+            ticket_numbers (list): List of ticket numbers to print
+            tipo_trabajo (str): Type of work
+            referencia (str): Reference
+            tallas_cantidades (dict): Dictionary with sizes as keys and quantities as values
+            color (str): Color
+            total_producido (int): Total produced
+            serial_code_path (str): Path to the barcode PNG
+
+        Returns:
+            str: Path to the generated PDF file
+        """
+        # Create PDF filename and path
+        pdf_filename = f"vale_multiple.pdf"
+        pdf_path = os.path.join("codes", pdf_filename)
+
+        # Create the PDF document
+        doc = SimpleDocTemplate(pdf_path, pagesize=letter, 
+                                leftMargin=30, rightMargin=30, 
+                                topMargin=30, bottomMargin=30)
+        styles = getSampleStyleSheet()
+        elements = []
+
+        # Define sizes (columns: 33 to 45 inclusive)
+        sizes = list(range(33, 49))
+        size_row = [str(size) for size in sizes]
+
+        # Create a frame for multiple tickets
+        for ticket_number in ticket_numbers:
+            # Prepare quantities row
+            qty_row = [str(tallas_cantidades.get(str(size), 0)) for size in sizes]
+
+            # Prepare barcode image
+            barcode_img = Image(serial_code_path, width=100, height=40)
+
+            # Create main container table
+            container_data = [[
+                Paragraph(f"{tipo_trabajo.upper()}", styles['Heading2']),
+                "",
+                barcode_img
+            ]]
+            container_table = Table(container_data, colWidths=[300, 50, 200])
+            container_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+                ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('BOX', (0, 0), (-1, -1), 2, colors.green)
+            ]))
+            elements.append(container_table)
+
+            # Ticket details table
+            details_data = [
+                ["Referencia:", referencia, "Color:", color, f"N° {ticket_number}"]
+            ]
+            details_table = Table(details_data, colWidths=[100, 150, 80, 100, 100])
+            details_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+                ('BOX', (0, 0), (-1, -1), 1, colors.green)
+            ]))
+            elements.append(details_table)
+
+            # Sizes and quantities table
+            sizes_table = Table([size_row, qty_row], colWidths=[30]*len(size_row))
+            sizes_table.setStyle(TableStyle([
+                ('GRID', (0, 0), (-1, -1), 1, colors.green),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold')
+            ]))
+            elements.append(sizes_table)
+
+            # Footer table
+            footer_data = [["Firma:", "", "", "Total:", str(total_producido)]]
+            footer_table = Table(footer_data, colWidths=[100, 150, 100, 80, 100])
+            footer_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+                ('BOX', (0, 0), (-1, -1), 1, colors.green)
+            ]))
+            elements.append(footer_table)
+
+            # Add spacing between tickets
+            elements.append(Spacer(1, 20))
+
+        # Build PDF
+        doc.build(elements)
+        return pdf_path
 
 
 
