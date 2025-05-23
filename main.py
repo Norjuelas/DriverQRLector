@@ -32,8 +32,11 @@ from PySide2.QtWidgets import *
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak, KeepTogether
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
+from reportlab.lib.units import inch, mm
+from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 
 # GUI FILE
 from app_modules import *
@@ -1365,40 +1368,42 @@ class MainWindow(QMainWindow):
     def resizeFunction(self):
         """Log window size on resize"""
         print('Height: ' + str(self.height()) + ' | Width: ' + str(self.width()))
-
+    
     def generate_vale_pdf(self, ticket_numbers, tipo_trabajo, referencia, tallas_cantidades, color, total_producido, serial_code_path):
         """
         Generate a PDF work voucher with multiple tickets on a single page.
-
-        Args:
-            ticket_numbers (list): List of ticket numbers to print
-            tipo_trabajo (str): Type of work
-            referencia (str): Reference
-            tallas_cantidades (dict): Dictionary with sizes as keys and quantities as values
-            color (str): Color
-            total_producido (int): Total produced
-            serial_code_path (str): Path to the barcode PNG
-
-        Returns:
-            str: Path to the generated PDF file
         """
         # Create PDF filename and path
-        pdf_filename = f"vale_multiple.pdf"
+        pdf_filename = f"vale_{tipo_trabajo}_{ticket_numbers}.pdf"
         pdf_path = os.path.join("codes", pdf_filename)
 
         # Create the PDF document
-        doc = SimpleDocTemplate(pdf_path, pagesize=letter, 
-                                leftMargin=30, rightMargin=30, 
+        doc = SimpleDocTemplate(pdf_path, pagesize=letter,
+                                leftMargin=30, rightMargin=30,
                                 topMargin=30, bottomMargin=30)
         styles = getSampleStyleSheet()
         elements = []
 
-        # Define sizes (columns: 33 to 45 inclusive)
+        # Define sizes (columns: 33 to 48 inclusive)
         sizes = list(range(33, 49))
         size_row = [str(size) for size in sizes]
 
+        # Calculate how many vales we need to fill the PDF
+        vales_per_page = 5  # Based on your PageBreak logic
+        total_pages_needed = 1  # You can adjust this or make it a parameter
+        total_vales_needed = vales_per_page * total_pages_needed
+        
+        # If we have fewer ticket numbers than needed, repeat them
+        extended_ticket_numbers = []
+        ticket_count = len(ticket_numbers)
+        
+        for i in range(total_vales_needed):
+            # Cycle through the ticket numbers if we need more vales than tickets
+            ticket_index = i % ticket_count
+            extended_ticket_numbers.append(ticket_numbers[ticket_index])
+        
         # Create a frame for multiple tickets
-        for ticket_number in ticket_numbers:
+        for i, ticket_number in enumerate(extended_ticket_numbers):
             # Prepare quantities row
             qty_row = [str(tallas_cantidades.get(str(size), 0)) for size in sizes]
 
@@ -1418,7 +1423,6 @@ class MainWindow(QMainWindow):
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('BOX', (0, 0), (-1, -1), 2, colors.green)
             ]))
-            elements.append(container_table)
 
             # Ticket details table
             details_data = [
@@ -1430,16 +1434,14 @@ class MainWindow(QMainWindow):
                 ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
                 ('BOX', (0, 0), (-1, -1), 1, colors.green)
             ]))
-            elements.append(details_table)
 
             # Sizes and quantities table
-            sizes_table = Table([size_row, qty_row], colWidths=[30]*len(size_row))
+            sizes_table = Table([size_row, qty_row], colWidths=[30] * len(size_row))
             sizes_table.setStyle(TableStyle([
                 ('GRID', (0, 0), (-1, -1), 1, colors.green),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold')
             ]))
-            elements.append(sizes_table)
 
             # Footer table
             footer_data = [["Firma:", "", "", "Total:", str(total_producido)]]
@@ -1449,14 +1451,39 @@ class MainWindow(QMainWindow):
                 ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
                 ('BOX', (0, 0), (-1, -1), 1, colors.green)
             ]))
-            elements.append(footer_table)
 
-            # Add spacing between tickets
-            elements.append(Spacer(1, 20))
+            # **SOLUCIÓN**: Agrupar todos los componentes en una sola tabla contenedora
+            complete_vale_data = [
+                [container_table],
+                [details_table],
+                [sizes_table],
+                [footer_table]
+            ]
+            
+            complete_vale_table = Table(complete_vale_data, colWidths=[530])
+            complete_vale_table.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 0),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ]))
+
+            # Agregar el vale completo como una unidad
+            elements.append(KeepTogether([complete_vale_table]))
+            
+            # Agregar espaciado entre vales
+            if i < len(extended_ticket_numbers) - 1:
+                elements.append(Spacer(1, 10))
+
+            # Insert page break every 3 tickets
+            if (i + 1) % 5 == 0 and (i + 1) < len(extended_ticket_numbers):
+                elements.append(PageBreak())
 
         # Build PDF
         doc.build(elements)
         return pdf_path
+
 
 
 
