@@ -1652,12 +1652,15 @@ border-radius: 5px;
                              <number>0</number>
                             </property>
                             <item>
-                             <widget class="QLineEdit" name="CampoTipoTrabajo_2">
+                             <widget class="QLineEdit" name="Nombre_Empleado">
                               <property name="minimumSize">
                                <size>
                                 <width>0</width>
                                 <height>30</height>
                                </size>
+                              </property>
+                              <property name="whatsThis">
+                               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;_&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                               </property>
                               <property name="styleSheet">
                                <string notr="true">QLineEdit {
@@ -1784,7 +1787,7 @@ border-radius: 5px;
                              <number>0</number>
                             </property>
                             <item>
-                             <widget class="QLineEdit" name="CampoTipoTrabajo_3">
+                             <widget class="QLineEdit" name="Cedula_Empleado">
                               <property name="minimumSize">
                                <size>
                                 <width>0</width>
@@ -1894,7 +1897,7 @@ border-radius: 5px;
                              <string notr="true"/>
                             </property>
                             <property name="text">
-                             <string>Tipo de trabajo</string>
+                             <string>Numero de Celular</string>
                             </property>
                            </widget>
                           </item>
@@ -1916,7 +1919,7 @@ border-radius: 5px;
                              <number>0</number>
                             </property>
                             <item>
-                             <widget class="QLineEdit" name="QlineCorreoCelular">
+                             <widget class="QLineEdit" name="Celular_Empleado">
                               <property name="minimumSize">
                                <size>
                                 <width>0</width>
@@ -2048,7 +2051,7 @@ border-radius: 5px;
                              <number>0</number>
                             </property>
                             <item>
-                             <widget class="QLineEdit" name="QlineCorreo">
+                             <widget class="QLineEdit" name="Correo_Empleado">
                               <property name="minimumSize">
                                <size>
                                 <width>0</width>
@@ -2086,7 +2089,7 @@ QLineEdit:focus {
                      </widget>
                     </item>
                     <item>
-                     <widget class="QPushButton" name="pushButtonGuardarEmpleado">
+                     <widget class="QPushButton" name="btnAgregarEmpleado">
                       <property name="minimumSize">
                        <size>
                         <width>150</width>
@@ -3052,7 +3055,7 @@ border-radius: 5px;
                                 <number>0</number>
                                </property>
                                <item>
-                                <widget class="QLineEdit" name="CampoTotaProducido">
+                                <widget class="QLineEdit" name="CampoTotalProducido">
                                  <property name="minimumSize">
                                   <size>
                                    <width>0</width>

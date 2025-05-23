@@ -24,3 +24,7 @@ from ui_functions import *
 
 ## ==> APP FUNCTIONS
 from app_functions import *
+
+from backup_thread import BackupThread, BackupManager
+
+from autocompletado import *

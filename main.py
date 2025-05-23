@@ -22,13 +22,16 @@ from PIL import ImageFont
 from PySide2 import QtCore, QtGui, QtWidgets
 from PySide2.QtCore import (
     QCoreApplication, QPropertyAnimation, QDate, QDateTime, QMetaObject, 
-    QObject, QPoint, QRect, QSize, QTime, QUrl, Qt, QEvent
+    QObject, QPoint, QRect, QSize, QTime, QThread, QUrl, Qt, QEvent
 )
 from PySide2.QtGui import (
     QBrush, QColor, QConicalGradient, QCursor, QFont, QFontDatabase, 
     QIcon, QKeySequence, QLinearGradient, QPalette, QPainter, QPixmap, QRadialGradient
 )
 from PySide2.QtWidgets import *
+
+import shutil
+import zipfile
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
@@ -40,6 +43,7 @@ from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 
 # GUI FILE
 from app_modules import *
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -70,8 +74,17 @@ class MainWindow(QMainWindow):
         # Setup employee management
         self.setup_employee_management()
 
+        # Conectar el botón de eliminarTODO (agregar esta línea)
+        self.setup_eliminar_todo_button()
+
         # Setup update reports button
         self.setup_update_button()
+        
+        # Setup add employee button
+        self.setup_add_employee_button()
+
+        self.autocompletado_manager = AutocompletadoManager(excel_path=self.excel_path, sheet_name="Trabajos")
+        self.setup_autocompletado_fields()
 
         # Show the window
         self.show()
@@ -108,6 +121,160 @@ class MainWindow(QMainWindow):
         
         # Set starting page
         self.ui.stackedWidget.setCurrentWidget(self.ui.page_home)
+
+    def setup_eliminar_todo_button(self):
+        """Conecta el botón EliminarTODO con la función de eliminación"""
+        self.ui.EliminarTODO.clicked.connect(self.eliminar_todo_con_backup)
+
+    def eliminar_todo_con_backup(self):
+        """
+        Elimina la base de datos Excel y el directorio codes después de crear un backup
+        Versión con threading para UI más responsiva
+        """
+        try:
+            # Confirmar acción con el usuario
+            reply = QMessageBox.question(
+                self, 
+                'Confirmar Eliminación', 
+                '¿Está seguro de que desea eliminar toda la base de datos?\n\n'
+                'Se creará un backup automáticamente antes de eliminar.',
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            
+            if reply != QMessageBox.Yes:
+                return
+                
+            # Obtener rutas usando BackupManager
+            excel_path, codes_dir = BackupManager.get_paths()
+            
+            # Verificar si hay algo que respaldar
+            has_files, excel_exists, codes_exists = BackupManager.check_files_exist(excel_path, codes_dir)
+            
+            if not has_files:
+                QMessageBox.information(
+                    self, 
+                    'Información', 
+                    'No hay archivos para eliminar. La base de datos ya está limpia.'
+                )
+                return
+            
+            # Deshabilitar el botón mientras se procesa
+            self.ui.EliminarTODO.setEnabled(False)
+            self.ui.EliminarTODO.setText("Procesando...")
+            QApplication.processEvents()
+            
+            # Crear backup en thread separado
+            self.backup_thread = BackupThread(excel_path, codes_dir)
+            self.backup_thread.finished.connect(self.on_backup_finished)
+            self.backup_thread.progress.connect(self.on_backup_progress)
+            self.backup_thread.start()
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error al iniciar eliminación: {str(e)}")
+            self.ui.EliminarTODO.setEnabled(True)
+            self.ui.EliminarTODO.setText("Eliminar TODO")
+    
+    def eliminar_todo_simple(self):
+        """
+        Versión simple sin threading - buena para pocos archivos
+        """
+        try:
+            # Confirmar acción
+            reply = QMessageBox.question(
+                self, 
+                'Confirmar Eliminación', 
+                '¿Está seguro de que desea eliminar toda la base de datos?\n\n'
+                'Se creará un backup automáticamente.',
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            
+            if reply != QMessageBox.Yes:
+                return
+            
+            # Cambiar botón para mostrar progreso
+            self.ui.EliminarTODO.setEnabled(False)
+            original_text = self.ui.EliminarTODO.text()
+            
+            def update_progress(message):
+                self.ui.EliminarTODO.setText(message)
+                QApplication.processEvents()
+            
+            # Obtener rutas
+            excel_path, codes_dir = BackupManager.get_paths()
+            
+            # Verificar archivos
+            has_files, excel_exists, codes_exists = BackupManager.check_files_exist(excel_path, codes_dir)
+            
+            if not has_files:
+                QMessageBox.information(self, 'Información', 'No hay archivos para eliminar.')
+                return
+            
+            # Crear backup
+            update_progress("Creando backup...")
+            backup_name = BackupManager.create_backup_sync(excel_path, codes_dir, update_progress)
+            
+            # Eliminar archivos originales
+            update_progress("Eliminando archivos...")
+            deleted_files = BackupManager.delete_files(excel_path, codes_dir)
+            
+            # Recrear estructura
+            update_progress("Recreando estructura...")
+            self.setup_code_generator()
+            
+            QMessageBox.information(
+                self, 
+                'Completado', 
+                f'Backup creado: {backup_name}\n'
+                f'Archivos eliminados: {", ".join(deleted_files)}'
+            )
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error durante la eliminación: {str(e)}")
+        
+        finally:
+            # Restaurar botón
+            self.ui.EliminarTODO.setEnabled(True)
+            self.ui.EliminarTODO.setText("Eliminar TODO")
+    
+    def on_backup_progress(self, message):
+        """Callback para actualizar progreso del backup"""
+        self.ui.EliminarTODO.setText(message)
+    
+    def on_backup_finished(self, success, message):
+        """Callback cuando termina el backup"""
+        try:
+            if success:
+                # Backup exitoso, proceder con eliminación
+                self.ui.EliminarTODO.setText("Eliminando archivos...")
+                QApplication.processEvents()
+                
+                excel_path, codes_dir = BackupManager.get_paths()
+                deleted_files = BackupManager.delete_files(excel_path, codes_dir)
+                
+                # Recrear estructura
+                self.ui.EliminarTODO.setText("Recreando estructura...")
+                QApplication.processEvents()
+                self.setup_code_generator()
+                
+                QMessageBox.information(
+                    self, 
+                    'Completado', 
+                    f'{message}\n'
+                    f'Archivos eliminados: {", ".join(deleted_files)}'
+                )
+            else:
+                # Error en backup
+                QMessageBox.critical(self, "Error en Backup", message)
+                
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error en proceso de eliminación: {str(e)}")
+        
+        finally:
+            # Rehabilitar botón
+            self.ui.EliminarTODO.setEnabled(True)
+            self.ui.EliminarTODO.setText("Eliminar TODO")
 
     def setup_code_generator(self):
         """
@@ -234,6 +401,103 @@ class MainWindow(QMainWindow):
             table_layout.addWidget(self.ui.tableViewVale)
         else:
             print("Warning: WidgetTabla not found in UI")
+
+
+    def setup_add_employee_button(self):
+        """Conecta el botón de agregar empleado (si lo tienes)"""
+        if hasattr(self.ui, 'btnAgregarEmpleado'):
+            self.ui.btnAgregarEmpleado.clicked.connect(self.add_employee)
+            print("Botón 'btnAgregarEmpleado' conectado correctamente.")
+        else:
+            print("Botón 'btnAgregarEmpleado' no encontrado en la UI.")
+
+    # Función adicional para validar cédula (opcional)
+    def validate_cedula(self, cedula):
+        """Valida que la cédula tenga formato correcto"""
+        # Remover espacios y guiones
+        cedula_clean = cedula.replace(" ", "").replace("-", "")
+        
+        # Verificar que solo contenga números y tenga longitud apropiada
+        if not cedula_clean.isdigit() or len(cedula_clean) < 6 or len(cedula_clean) > 12:
+            return False
+        
+        return True
+
+    # Versión mejorada con validación
+    def add_employee(self):
+        """Agrega empleado con validaciones adicionales"""
+        try:
+            # Obtener valores de los campos
+            nombre = self.ui.Nombre_Empleado.text().strip() if hasattr(self.ui, 'Nombre_Empleado') else ""
+            cedula = self.ui.Cedula_Empleado.text().strip() if hasattr(self.ui, 'Cedula_Empleado') else ""
+            celular = self.ui.Celular_Empleado.text().strip() if hasattr(self.ui, 'Celular_Empleado') else ""
+            correo = self.ui.Correo_Empleado.text().strip() if hasattr(self.ui, 'Correo_Empleado') else ""
+            
+            # Validaciones
+            if not nombre:
+                QMessageBox.warning(self, "Campo Requerido", "El nombre es obligatorio.")
+                self.ui.Nombre_Empleado.setFocus()
+                return
+                
+            if not cedula:
+                QMessageBox.warning(self, "Campo Requerido", "La cédula es obligatoria.")
+                self.ui.Cedula_Empleado.setFocus()
+                return
+            
+            # Validar formato de cédula
+            if not self.validate_cedula(cedula):
+                QMessageBox.warning(self, "Cédula Inválida", "La cédula debe contener solo números (6-12 dígitos).")
+                self.ui.Cedula_Empleado.setFocus()
+                return
+            
+            # Validar email si se proporciona
+            if correo and "@" not in correo:
+                QMessageBox.warning(self, "Email Inválido", "El formato del correo electrónico no es válido.")
+                self.ui.Correo_Empleado.setFocus()
+                return
+            
+            # Generar ID único del empleado
+            unique_id = str(uuid.uuid4())[:4]
+            empleado_id = f"E{cedula[-4:]}{unique_id}".upper()
+            
+            # Cargar Excel y verificar duplicados
+            wb = load_workbook(self.excel_path)
+            
+            if "Empleados" not in wb.sheetnames:
+                empleados_ws = wb.create_sheet(title="Empleados")
+                empleados_ws.append(["Nombre", "Cedula", "Celular", "Correo", "EmpleadoId"])
+            else:
+                empleados_ws = wb["Empleados"]
+            
+            # Verificar si la cédula ya existe
+            for row in empleados_ws.iter_rows(min_row=2, max_col=5):
+                if row[1].value and str(row[1].value) == cedula:
+                    QMessageBox.warning(self, "Empleado Existente", f"Ya existe un empleado con cédula {cedula}")
+                    return
+            
+            # Agregar empleado
+            empleados_ws.append([nombre, cedula, celular, correo, empleado_id])
+            wb.save(self.excel_path)
+            
+            # Limpiar campos
+            self.ui.Nombre_Empleado.clear()
+            self.ui.Cedula_Empleado.clear()
+            self.ui.Celular_Empleado.clear()
+            self.ui.Correo_Empleado.clear()
+            
+            # Actualizar ComboBox
+            if hasattr(self, 'setup_employee_management'):
+                self.setup_employee_management()
+            
+            # Mensaje de éxito
+            QMessageBox.information(self, "Empleado Agregado", f"Empleado: {nombre}\nCédula: {cedula}\nID: {empleado_id}")
+            
+            print(f"Empleado agregado exitosamente: {nombre} ({empleado_id})")
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Error al agregar empleado: {str(e)}")
+            print(f"Error en add_employee_with_validation: {e}")
+
     def setup_employee_management(self):
         """Carga empleados en el ComboBox y conecta el botón Registrar Vale."""
         try:
@@ -896,6 +1160,54 @@ class MainWindow(QMainWindow):
         elif self.ui.PreviwImage.scene() is None:
             self.ui.PreviwImage.setScene(QtWidgets.QGraphicsScene())
     
+    def setup_autocompletado_fields(self):
+        """
+        Configura el autocompletado para los campos QLineEdit relevantes.
+        """
+        # Define los campos QLineEdit de tu UI y las columnas de Excel correspondientes
+        # El formato es: 'identificador_unico': {'line_edit': self.ui.TuLineEdit, 'columna': 'NombreDeColumnaEnExcel'}
+        
+        campos_a_configurar = {}
+
+        # Asegúrate de que estos QLineEdit existen en tu self.ui y las columnas en tu Excel
+        if hasattr(self.ui, 'CampoTipoTrabajo'):
+            campos_a_configurar['tipo_trabajo'] = {
+                'line_edit': self.ui.CampoTipoTrabajo, 
+                'columna': 'Tipo Trabajo'
+            }
+        if hasattr(self.ui, 'CampoReferenciaTrabajo'):
+            campos_a_configurar['referencia_trabajo'] = {
+                'line_edit': self.ui.CampoReferenciaTrabajo, 
+                'columna': 'Referencia'
+            }
+        if hasattr(self.ui, 'CampoNumeroTicket'):
+            campos_a_configurar['numero_ticket'] = {
+                'line_edit': self.ui.CampoNumeroTicket, 
+                'columna': 'Número Ticket'
+            }
+        if hasattr(self.ui, 'CampoTalla'):
+            campos_a_configurar['talla'] = {
+                'line_edit': self.ui.CampoTalla, 
+                'columna': 'Talla'
+            }
+        if hasattr(self.ui, 'CampoColor'):
+            campos_a_configurar['color'] = {
+                'line_edit': self.ui.CampoColor, 
+                'columna': 'Color'
+            }
+        # Añade más campos si es necesario, por ejemplo:
+        # if hasattr(self.ui, 'CampoValor'):
+        #     campos_a_configurar['valor'] = {
+        #         'line_edit': self.ui.CampoValor,
+        #         'columna': 'Valor' # Asegúrate que esta columna exista y tenga sentido para autocompletar
+        #     }
+
+        if campos_a_configurar:
+            self.autocompletado_manager.configurar_multiples_campos(campos_a_configurar)
+            print("Autocompletado configurado para los campos.")
+        else:
+            print("No se encontraron campos para configurar el autocompletado.")
+
     def on_save_button_clicked(self):
         """Handler for save button click"""
         # Define required fields and their UI elements
@@ -1368,8 +1680,128 @@ class MainWindow(QMainWindow):
     def resizeFunction(self):
         """Log window size on resize"""
         print('Height: ' + str(self.height()) + ' | Width: ' + str(self.width()))
-    
+
     def generate_vale_pdf(self, ticket_numbers, tipo_trabajo, referencia, tallas_cantidades, color, total_producido, serial_code_path):
+        """
+        Generate a PDF work voucher with multiple tickets on a single page.
+        """
+        # Create PDF filename and path
+        pdf_filename = f"vale_{tipo_trabajo}_{'_'.join(map(str, ticket_numbers))}.pdf" # Asegurarse que ticket_numbers sean strings para el join si son ints
+        pdf_path = os.path.join("codes", pdf_filename)
+
+        # Create the PDF document
+        doc = SimpleDocTemplate(pdf_path, pagesize=letter,
+                                leftMargin=30, rightMargin=30,
+                                topMargin=30, bottomMargin=30)
+        styles = getSampleStyleSheet()
+        elements = []
+
+        # Define sizes (columns: 33 to 48 inclusive)
+        sizes = list(range(33, 49))
+        size_row = [str(size) for size in sizes]
+
+        # Calculate how many vales we need to fill the PDF
+        vales_per_page = 5
+        total_pages_needed = 1
+        total_vales_needed = vales_per_page * total_pages_needed
+        
+        extended_ticket_numbers = []
+        ticket_count = len(ticket_numbers)
+        
+        for i in range(total_vales_needed):
+            ticket_index = i % ticket_count
+            extended_ticket_numbers.append(ticket_numbers[ticket_index])
+        
+        for i, ticket_number in enumerate(extended_ticket_numbers):
+            # --- MODIFICACIÓN AQUÍ ---
+            # Prepare quantities row
+            # Para cada talla en 'sizes', si esa talla (convertida a string) está como clave en 'tallas_cantidades',
+            # entonces usa 'total_producido'. De lo contrario, usa '0'.
+            qty_row = [str(total_producido) if str(size) in tallas_cantidades else '' for size in sizes]
+            # --- FIN DE LA MODIFICACIÓN ---
+
+            # Prepare barcode image
+            barcode_img = Image(serial_code_path, width=100, height=40) # Ajusta width/height según necesites
+
+            # Create main container table
+            container_data = [[
+                Paragraph(f"{tipo_trabajo.upper()}", styles['Heading2']),
+                "",
+                barcode_img
+            ]]
+            container_table = Table(container_data, colWidths=[300, 50, 180]) # Ajustado para que sume cerca de 530
+            container_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+                ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                # ('BOX', (0, 0), (-1, -1), 2, colors.green) # Comentado para que la tabla completa tenga el borde
+            ]))
+
+            # Ticket details table
+            details_data = [
+                ["Referencia:", referencia, "Color:", color, f"N° {ticket_number}"]
+            ]
+            # Ajustar colWidths para que sumen el ancho de la tabla contenedora (530)
+            details_table = Table(details_data, colWidths=[80, 150, 50, 100, 150])
+            details_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+                # ('BOX', (0, 0), (-1, -1), 1, colors.green)
+            ]))
+
+            # Sizes and quantities table
+            # El ancho de cada columna es (ancho total / número de tallas)
+            # Ancho total disponible es 530. Número de tallas es len(size_row)
+            col_width_size = 530 / len(size_row)
+            sizes_table = Table([size_row, qty_row], colWidths=[col_width_size] * len(size_row))
+            sizes_table.setStyle(TableStyle([
+                ('GRID', (0, 0), (-1, -1), 1, colors.green),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold')
+            ]))
+
+            # Footer table
+            footer_data = [["Firma:", "________________", "Total:", str(total_producido)]]
+            # Ajustar colWidths para que sumen el ancho de la tabla contenedora (530)
+            footer_table = Table(footer_data, colWidths=[50, 250, 50, 180])
+            footer_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+                ('ALIGN', (2,0), (2,0), 'RIGHT'), # Total a la derecha
+                ('ALIGN', (3,0), (3,0), 'RIGHT'), # Valor del total a la derecha
+                # ('BOX', (0, 0), (-1, -1), 1, colors.green)
+            ]))
+
+            # Agrupar todos los componentes en una sola tabla contenedora
+            complete_vale_data = [
+                [container_table],
+                [details_table],
+                [sizes_table],
+                [footer_table]
+            ]
+            
+            complete_vale_table = Table(complete_vale_data, colWidths=[530]) # Ancho total del vale
+            complete_vale_table.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ('TOPPADDING', (0, 0), (-1, -1), 0),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 2), # Pequeño espacio entre elementos internos
+                ('BOX', (0,0), (-1,-1), 1, colors.green) # Borde verde para todo el vale
+            ]))
+
+            elements.append(KeepTogether([complete_vale_table]))
+            
+            if i < len(extended_ticket_numbers) - 1:
+                elements.append(Spacer(1, 10)) # 10 puntos de espacio vertical
+
+            if (i + 1) % vales_per_page == 0 and (i + 1) < len(extended_ticket_numbers):
+                elements.append(PageBreak())
+
+        doc.build(elements)
+        return pdf_path
+    
+    def generate_vale_pdf_funcional(self, ticket_numbers, tipo_trabajo, referencia, tallas_cantidades, color, total_producido, serial_code_path):
         """
         Generate a PDF work voucher with multiple tickets on a single page.
         """

@@ -752,10 +752,10 @@ class Ui_MainWindow(object):
         self.verticalLayout_47 = QVBoxLayout()
         self.verticalLayout_47.setObjectName(u"verticalLayout_47")
         self.verticalLayout_47.setContentsMargins(-1, -1, -1, 0)
-        self.CampoTipoTrabajo_2 = QLineEdit(self.frame_content_wid_8)
-        self.CampoTipoTrabajo_2.setObjectName(u"CampoTipoTrabajo_2")
-        self.CampoTipoTrabajo_2.setMinimumSize(QSize(0, 30))
-        self.CampoTipoTrabajo_2.setStyleSheet(u"QLineEdit {\n"
+        self.Nombre_Empleado = QLineEdit(self.frame_content_wid_8)
+        self.Nombre_Empleado.setObjectName(u"Nombre_Empleado")
+        self.Nombre_Empleado.setMinimumSize(QSize(0, 30))
+        self.Nombre_Empleado.setStyleSheet(u"QLineEdit {\n"
 "	background-color: rgb(27, 29, 35);\n"
 "	border-radius: 5px;\n"
 "	border: 2px solid rgb(27, 29, 35);\n"
@@ -768,7 +768,7 @@ class Ui_MainWindow(object):
 "	border: 2px solid rgb(91, 101, 124);\n"
 "}")
 
-        self.verticalLayout_47.addWidget(self.CampoTipoTrabajo_2)
+        self.verticalLayout_47.addWidget(self.Nombre_Empleado)
 
 
         self.verticalLayout_46.addLayout(self.verticalLayout_47)
@@ -819,10 +819,10 @@ class Ui_MainWindow(object):
         self.verticalLayout_63 = QVBoxLayout()
         self.verticalLayout_63.setObjectName(u"verticalLayout_63")
         self.verticalLayout_63.setContentsMargins(-1, -1, -1, 0)
-        self.CampoTipoTrabajo_3 = QLineEdit(self.frame_content_wid_12)
-        self.CampoTipoTrabajo_3.setObjectName(u"CampoTipoTrabajo_3")
-        self.CampoTipoTrabajo_3.setMinimumSize(QSize(0, 30))
-        self.CampoTipoTrabajo_3.setStyleSheet(u"QLineEdit {\n"
+        self.Cedula_Empleado = QLineEdit(self.frame_content_wid_12)
+        self.Cedula_Empleado.setObjectName(u"Cedula_Empleado")
+        self.Cedula_Empleado.setMinimumSize(QSize(0, 30))
+        self.Cedula_Empleado.setStyleSheet(u"QLineEdit {\n"
 "	background-color: rgb(27, 29, 35);\n"
 "	border-radius: 5px;\n"
 "	border: 2px solid rgb(27, 29, 35);\n"
@@ -835,7 +835,7 @@ class Ui_MainWindow(object):
 "	border: 2px solid rgb(91, 101, 124);\n"
 "}")
 
-        self.verticalLayout_63.addWidget(self.CampoTipoTrabajo_3)
+        self.verticalLayout_63.addWidget(self.Cedula_Empleado)
 
 
         self.verticalLayout_62.addLayout(self.verticalLayout_63)
@@ -886,10 +886,10 @@ class Ui_MainWindow(object):
         self.verticalLayout_67 = QVBoxLayout()
         self.verticalLayout_67.setObjectName(u"verticalLayout_67")
         self.verticalLayout_67.setContentsMargins(-1, -1, -1, 0)
-        self.QlineCorreoCelular = QLineEdit(self.frame_content_wid_13)
-        self.QlineCorreoCelular.setObjectName(u"QlineCorreoCelular")
-        self.QlineCorreoCelular.setMinimumSize(QSize(0, 30))
-        self.QlineCorreoCelular.setStyleSheet(u"QLineEdit {\n"
+        self.Celular_Empleado = QLineEdit(self.frame_content_wid_13)
+        self.Celular_Empleado.setObjectName(u"Celular_Empleado")
+        self.Celular_Empleado.setMinimumSize(QSize(0, 30))
+        self.Celular_Empleado.setStyleSheet(u"QLineEdit {\n"
 "	background-color: rgb(27, 29, 35);\n"
 "	border-radius: 5px;\n"
 "	border: 2px solid rgb(27, 29, 35);\n"
@@ -902,7 +902,7 @@ class Ui_MainWindow(object):
 "	border: 2px solid rgb(91, 101, 124);\n"
 "}")
 
-        self.verticalLayout_67.addWidget(self.QlineCorreoCelular)
+        self.verticalLayout_67.addWidget(self.Celular_Empleado)
 
 
         self.verticalLayout_66.addLayout(self.verticalLayout_67)
@@ -953,10 +953,10 @@ class Ui_MainWindow(object):
         self.verticalLayout_71 = QVBoxLayout()
         self.verticalLayout_71.setObjectName(u"verticalLayout_71")
         self.verticalLayout_71.setContentsMargins(-1, -1, -1, 0)
-        self.QlineCorreo = QLineEdit(self.frame_content_wid_14)
-        self.QlineCorreo.setObjectName(u"QlineCorreo")
-        self.QlineCorreo.setMinimumSize(QSize(0, 30))
-        self.QlineCorreo.setStyleSheet(u"QLineEdit {\n"
+        self.Correo_Empleado = QLineEdit(self.frame_content_wid_14)
+        self.Correo_Empleado.setObjectName(u"Correo_Empleado")
+        self.Correo_Empleado.setMinimumSize(QSize(0, 30))
+        self.Correo_Empleado.setStyleSheet(u"QLineEdit {\n"
 "	background-color: rgb(27, 29, 35);\n"
 "	border-radius: 5px;\n"
 "	border: 2px solid rgb(27, 29, 35);\n"
@@ -969,7 +969,7 @@ class Ui_MainWindow(object):
 "	border: 2px solid rgb(91, 101, 124);\n"
 "}")
 
-        self.verticalLayout_71.addWidget(self.QlineCorreo)
+        self.verticalLayout_71.addWidget(self.Correo_Empleado)
 
 
         self.verticalLayout_70.addLayout(self.verticalLayout_71)
@@ -980,11 +980,11 @@ class Ui_MainWindow(object):
 
         self.verticalLayout_11.addWidget(self.frame_div_content_13)
 
-        self.pushButtonGuardarEmpleado = QPushButton(self.create_user)
-        self.pushButtonGuardarEmpleado.setObjectName(u"pushButtonGuardarEmpleado")
-        self.pushButtonGuardarEmpleado.setMinimumSize(QSize(150, 30))
-        self.pushButtonGuardarEmpleado.setFont(font5)
-        self.pushButtonGuardarEmpleado.setStyleSheet(u"QPushButton {\n"
+        self.btnAgregarEmpleado = QPushButton(self.create_user)
+        self.btnAgregarEmpleado.setObjectName(u"btnAgregarEmpleado")
+        self.btnAgregarEmpleado.setMinimumSize(QSize(150, 30))
+        self.btnAgregarEmpleado.setFont(font5)
+        self.btnAgregarEmpleado.setStyleSheet(u"QPushButton {\n"
 "	border: 2px solid rgb(52, 59, 72);\n"
 "	border-radius: 5px;	\n"
 "	background-color: rgb(52, 59, 72);\n"
@@ -997,9 +997,9 @@ class Ui_MainWindow(object):
 "	background-color: rgb(35, 40, 49);\n"
 "	border: 2px solid rgb(43, 50, 61);\n"
 "}")
-        self.pushButtonGuardarEmpleado.setIcon(icon)
+        self.btnAgregarEmpleado.setIcon(icon)
 
-        self.verticalLayout_11.addWidget(self.pushButtonGuardarEmpleado)
+        self.verticalLayout_11.addWidget(self.btnAgregarEmpleado)
 
         self.stackedWidget.addWidget(self.create_user)
         self.page_widgets = QWidget()
@@ -1469,10 +1469,10 @@ class Ui_MainWindow(object):
         self.verticalLayout_58 = QVBoxLayout()
         self.verticalLayout_58.setObjectName(u"verticalLayout_58")
         self.verticalLayout_58.setContentsMargins(-1, -1, -1, 0)
-        self.CampoTotaProducido = QLineEdit(self.frame_content_wid_10)
-        self.CampoTotaProducido.setObjectName(u"CampoTotaProducido")
-        self.CampoTotaProducido.setMinimumSize(QSize(0, 30))
-        self.CampoTotaProducido.setStyleSheet(u"QLineEdit {\n"
+        self.CampoTotalProducido = QLineEdit(self.frame_content_wid_10)
+        self.CampoTotalProducido.setObjectName(u"CampoTotalProducido")
+        self.CampoTotalProducido.setMinimumSize(QSize(0, 30))
+        self.CampoTotalProducido.setStyleSheet(u"QLineEdit {\n"
 "	background-color: rgb(27, 29, 35);\n"
 "	border-radius: 5px;\n"
 "	border: 2px solid rgb(27, 29, 35);\n"
@@ -1485,7 +1485,7 @@ class Ui_MainWindow(object):
 "	border: 2px solid rgb(91, 101, 124);\n"
 "}")
 
-        self.verticalLayout_58.addWidget(self.CampoTotaProducido)
+        self.verticalLayout_58.addWidget(self.CampoTotalProducido)
 
 
         self.verticalLayout_54.addLayout(self.verticalLayout_58)
@@ -1619,18 +1619,21 @@ class Ui_MainWindow(object):
         self.EliminarTODO.setText(QCoreApplication.translate("MainWindow", u"ELIMINAR TODO", None))
         self.label.setText(QCoreApplication.translate("MainWindow", u"<html><head/><body><p align=\"center\"><span style=\" font-size:14pt; font-weight:600;\">A\u00f1adir Empleado</span></p></body></html>", None))
         self.labelBoxNombreEmpleado.setText(QCoreApplication.translate("MainWindow", u"Nombre Empleado", None))
-        self.CampoTipoTrabajo_2.setText("")
-        self.CampoTipoTrabajo_2.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Your Password", None))
+#if QT_CONFIG(whatsthis)
+        self.Nombre_Empleado.setWhatsThis(QCoreApplication.translate("MainWindow", u"<html><head/><body><p>_</p></body></html>", None))
+#endif // QT_CONFIG(whatsthis)
+        self.Nombre_Empleado.setText("")
+        self.Nombre_Empleado.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Your Password", None))
         self.labelBoxBlenderInstalation_17.setText(QCoreApplication.translate("MainWindow", u"Cedula", None))
-        self.CampoTipoTrabajo_3.setText("")
-        self.CampoTipoTrabajo_3.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Your Password", None))
-        self.la.setText(QCoreApplication.translate("MainWindow", u"Tipo de trabajo", None))
-        self.QlineCorreoCelular.setText("")
-        self.QlineCorreoCelular.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Your Password", None))
+        self.Cedula_Empleado.setText("")
+        self.Cedula_Empleado.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Your Password", None))
+        self.la.setText(QCoreApplication.translate("MainWindow", u"Numero de Celular", None))
+        self.Celular_Empleado.setText("")
+        self.Celular_Empleado.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Your Password", None))
         self.labelBoxCorreo.setText(QCoreApplication.translate("MainWindow", u"Correo Electronico", None))
-        self.QlineCorreo.setText("")
-        self.QlineCorreo.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Your Password", None))
-        self.pushButtonGuardarEmpleado.setText(QCoreApplication.translate("MainWindow", u"Guardar Empleado", None))
+        self.Correo_Empleado.setText("")
+        self.Correo_Empleado.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Your Password", None))
+        self.btnAgregarEmpleado.setText(QCoreApplication.translate("MainWindow", u"Guardar Empleado", None))
         self.labelBoxBlenderInstalation_13.setText(QCoreApplication.translate("MainWindow", u"Tipo de trabajo", None))
         self.CampoTipoTrabajo.setText("")
         self.CampoTipoTrabajo.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Your Password", None))
@@ -1650,8 +1653,8 @@ class Ui_MainWindow(object):
         self.CampoTalla.setText("")
         self.CampoTalla.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Your Password", None))
         self.labelBoxBlenderInstalation_20.setText(QCoreApplication.translate("MainWindow", u"Total Producido", None))
-        self.CampoTotaProducido.setText("")
-        self.CampoTotaProducido.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Your Password", None))
+        self.CampoTotalProducido.setText("")
+        self.CampoTotalProducido.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Your Password", None))
         self.pushButtonGuardar.setText(QCoreApplication.translate("MainWindow", u"Guardar tarea", None))
         self.label_credits.setText("")
         self.label_version.setText(QCoreApplication.translate("MainWindow", u"v1.0.0", None))
