@@ -16,11 +16,6 @@ pefile==2023.2.7
 pillow==11.2.1
 pyinstaller==6.13.0
 pyinstaller-hooks-contrib==2025.4
-PyQt5==5.15.9
-pyqt5-plugins==5.15.9.2.3
-PyQt5-Qt5==5.15.2
-pyqt5-tools==5.15.9.3.3
-PyQt5_sip==12.17.0
 PySide2==5.15.2.1
 python-barcode==0.15.1
 python-dateutil==2.9.0.post0
