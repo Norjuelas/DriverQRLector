@@ -32,3 +32,4 @@ striprtf==0.0.29
 tomli==2.2.1
 tzdata==2025.2
 uuid==1.30
+pdf2image

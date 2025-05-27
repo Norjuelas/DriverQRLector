@@ -1143,7 +1143,7 @@ class MainWindow(QMainWindow):
                 return
 
         # --- 6. Generación de PDF ---
-        pdf_path = generate_vale_pdf_mejorado(
+        pdf_path = generate_vale_pdf(
             ticket_number, referencia, tallas_cantidades, color,
             total_producido_calculado, barcode_paths, valores_trabajo
         )

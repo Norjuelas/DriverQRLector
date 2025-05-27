@@ -90,6 +90,11 @@ def generate_barcode(serial_code):
             if hasattr(writer, opt_key):
                 setattr(writer, opt_key, opt_value)
 
+        # Validar caracteres antes de continuar
+        invalid_chars = [c for c in serial_code if not (32 <= ord(c) <= 126)]
+        if invalid_chars:
+            raise ValueError(f"El código '{serial_code}' contiene caracteres no válidos para Code128: {''.join(invalid_chars)}")
+
         if getattr(sys, 'frozen', False):
             application_path = os.path.dirname(sys.executable)
         else:
@@ -102,11 +107,41 @@ def generate_barcode(serial_code):
         full_filename_written = barcode_instance.save(barcode_file_path_no_ext)
         return full_filename_written
 
+
     except Exception as e:
         print(f"Error crítico al generar código de barras: {e}")
-        QMessageBox.critical("Error de Código de Barras",
+        QMessageBox.critical(None,"Error de Código de Barras",
                                 f"No se pudo generar el código de barras para '{serial_code}':\n{e}")
         return None
+
+
+def shorten_serial_code(code: str, length: int = 8) -> str:
+    """Return a short hash from a given code"""
+    hash_object = hashlib.sha1(code.encode())
+    short_hash = hash_object.hexdigest()[:length]
+    return short_hash.upper()
+
+def generate_serial_code(ticket_number, referencia, color, tallas_cantidades, work_type_abbr):
+    """
+    Genera un código serial único para un tipo de trabajo específico.
+    Formato: {ticket_number[:3]}-{referencia[:2]}-{work_type_abbr}-{talla_char}-{unique_id[:6]}
+    """
+    talla_char = 'X'
+    for i in range(33, 49):
+        if str(i) in tallas_cantidades:
+            talla_char = str(i)[0]
+            break
+
+    unique_id_segment = str(uuid.uuid4())[:6]
+    serial_code = (
+        f"{ticket_number[:3]}-"
+        f"{referencia[:2]}-"
+        f"{work_type_abbr}-"
+        f"{talla_char}-"
+        f"{unique_id_segment}"
+    )
+    return serial_code.upper()
+
 
 # def on_code_type_changed(checked,current_code_type):
 #     """Handle change in code type selection"""
@@ -140,30 +175,3 @@ def generate_barcode(serial_code):
 #             if hasattr(self.ui, 'formLayout'):
 #                 # Insert at position 0 (top)
 #                 self.ui.formLayout.insertRow(0, "Tipo de Código:", self.ui.codeTypeFrame)
-
-def shorten_serial_code(code: str, length: int = 8) -> str:
-    """Return a short hash from a given code"""
-    hash_object = hashlib.sha1(code.encode())
-    short_hash = hash_object.hexdigest()[:length]
-    return short_hash.upper()
-
-def generate_serial_code(ticket_number, referencia, color, tallas_cantidades, work_type_abbr):
-    """
-    Genera un código serial único para un tipo de trabajo específico.
-    Formato: {ticket_number[:3]}-{referencia[:2]}-{work_type_abbr}-{talla_char}-{unique_id[:6]}
-    """
-    talla_char = 'X'
-    for i in range(33, 49):
-        if str(i) in tallas_cantidades:
-            talla_char = str(i)[0]
-            break
-
-    unique_id_segment = str(uuid.uuid4())[:6]
-    serial_code = (
-        f"{ticket_number[:3]}-"
-        f"{referencia[:2]}-"
-        f"{work_type_abbr}-"
-        f"{talla_char}-"
-        f"{unique_id_segment}"
-    )
-    return serial_code.upper()
