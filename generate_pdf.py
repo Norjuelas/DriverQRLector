@@ -4,8 +4,6 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak, KeepTogether
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
-from reportlab.lib.units import inch, mm
-from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 import os
 import sys
 from PySide2.QtWidgets import QMessageBox

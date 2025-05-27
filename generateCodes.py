@@ -44,9 +44,10 @@ def generate_qr_code(data):
         print(f"Error generating QR code: {e}")
         return None
     
-def generate_barcode(serial_code):
+def generate_barcode(serial_code, subfolder_name=None):
     """
     Genera una imagen de código de barras Code128 para el serial_code dado.
+    Si se proporciona subfolder_name, guarda el código en codes/subfolder_name.
     """
     try:
         barcode_class = get_barcode_class('code128')
@@ -100,9 +101,20 @@ def generate_barcode(serial_code):
         else:
             application_path = os.path.dirname(os.path.abspath(__file__))
 
-        codes_dir = os.path.join(application_path, "codes")
-        os.makedirs(codes_dir, exist_ok=True)
-        barcode_file_path_no_ext = os.path.join(codes_dir, f"barcode_{serial_code}")
+        base_codes_dir = os.path.join(application_path, "codes") # Base "codes" directory
+
+        if subfolder_name:
+            # Sanitize subfolder_name to prevent issues and ensure it's a valid directory name component
+            safe_subfolder_name = subfolder_name.replace(os.sep, "_").replace("/", "_").replace("\\", "_").replace("..", "_").strip()
+            if not safe_subfolder_name: # Handle empty or only problematic chars
+                target_codes_dir = base_codes_dir # Default to base if subfolder_name is invalid
+            else:
+                target_codes_dir = os.path.join(base_codes_dir, safe_subfolder_name)
+        else:
+            target_codes_dir = base_codes_dir
+        
+        os.makedirs(target_codes_dir, exist_ok=True) # Ensure the target directory (could be a subfolder) exists
+        barcode_file_path_no_ext = os.path.join(target_codes_dir, f"barcode_{serial_code}")
         barcode_instance = barcode_class(serial_code, writer=writer)
         full_filename_written = barcode_instance.save(barcode_file_path_no_ext)
         return full_filename_written
