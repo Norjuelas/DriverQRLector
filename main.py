@@ -6,22 +6,12 @@ import sys
 import os
 import platform
 import uuid
-import hashlib
 import traceback
 from datetime import datetime
-from io import BytesIO
 import time
 import datetime
 
 from openpyxl import Workbook, load_workbook
-from openpyxl.styles import Font, PatternFill, Alignment
-
-import qrcode
-import barcode
-from barcode import get_barcode_class
-
-from barcode.writer import ImageWriter
-from PIL import ImageFont
 
 from PySide2 import QtCore, QtGui, QtWidgets
 from PySide2.QtCore import (
@@ -33,17 +23,6 @@ from PySide2.QtGui import (
     QIcon, QKeySequence, QLinearGradient, QPalette, QPainter, QPixmap, QRadialGradient
 )
 from PySide2.QtWidgets import *
-
-import shutil
-import zipfile
-
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak, KeepTogether
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-
-from reportlab.lib.units import inch, mm
-from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 
 # GUI FILE
 from app_modules import *
@@ -359,8 +338,8 @@ class MainWindow(QMainWindow):
         else:
             print("Advertencia: self.ui.pushButtonGuardar no encontrado.")
             
-        # Configurar el selector de tipo de código (radio buttons, etc.)
-        self.setup_code_type_selector()
+        # # Configurar el selector de tipo de código (radio buttons, etc.)
+        # self.setup_code_type_selector()
         
         # Asegurar que el QGraphicsView para la previsualización de la imagen tenga una escena
         if hasattr(self.ui, 'PreviwImage'):  # Corregir el nombre si es necesario
@@ -368,33 +347,6 @@ class MainWindow(QMainWindow):
                 self.ui.PreviwImage.setScene(QtWidgets.QGraphicsScene(self))
         else:
             print("Advertencia: self.ui.PreviwImage no encontrado.")
-    
-    def setup_code_type_selector(self):
-        """Setup UI elements to select between barcode and QR code"""
-        # Create a frame for radio buttons if it doesn't exist
-        if not hasattr(self.ui, 'codeTypeFrame'):
-            self.ui.codeTypeFrame = QFrame()
-            self.ui.codeTypeFrame.setFrameShape(QFrame.StyledPanel)
-            self.ui.codeTypeFrame.setFrameShadow(QFrame.Raised)
-            
-            # Create radio buttons
-            self.ui.radioBarcode = QRadioButton("Código de Barras")
-            self.ui.radioQR = QRadioButton("Código QR")
-            self.ui.radioBarcode.setChecked(True)  # Barcode is default
-            
-            # Create layout
-            layout = QHBoxLayout(self.ui.codeTypeFrame)
-            layout.addWidget(self.ui.radioBarcode)
-            layout.addWidget(self.ui.radioQR)
-            
-            # Connect signals
-            self.ui.radioBarcode.toggled.connect(self.on_code_type_changed)
-            
-            # Find a place to add the frame (this depends on your UI layout)
-            # For example, if there's a verticalLayout in the form:
-            if hasattr(self.ui, 'formLayout'):
-                # Insert at position 0 (top)
-                self.ui.formLayout.insertRow(0, "Tipo de Código:", self.ui.codeTypeFrame)
     
     def setup_code_reader(self):
         """Setup the code reader functionality and TableView inside WidgetTabla"""
@@ -743,110 +695,7 @@ class MainWindow(QMainWindow):
         else:
             print("ERROR: El QPushButton 'btnActualizarDB' no se encontró en la UI.")
 
-    def on_code_type_changed(self, checked):
-        """Handle change in code type selection"""
-        if checked:
-            self.current_code_type = "barcode"
-        else:
-            self.current_code_type = "qr"
-            
-    def shorten_serial_code(self, code: str, length: int = 8) -> str:
-        """Return a short hash from a given code"""
-        hash_object = hashlib.sha1(code.encode())
-        short_hash = hash_object.hexdigest()[:length]
-        return short_hash.upper()
-        #TODOok
 
-    def generate_serial_code(self, ticket_number, referencia, color, tallas_cantidades, work_type_abbr):
-        """
-        Genera un código serial único para un tipo de trabajo específico.
-        Formato: {ticket_number[:3]}-{referencia[:2]}-{work_type_abbr}-{talla_char}-{unique_id[:6]}
-        """
-        talla_char = 'X'
-        for i in range(33, 49):
-            if str(i) in tallas_cantidades:
-                talla_char = str(i)[0]
-                break
-
-        unique_id_segment = str(uuid.uuid4())[:6]
-        serial_code = (
-            f"{ticket_number[:3]}-"
-            f"{referencia[:2]}-"
-            f"{work_type_abbr}-"
-            f"{talla_char}-"
-            f"{unique_id_segment}"
-        )
-        return serial_code.upper()
-
-    
-
-#TODOok
-    def generate_barcode(self, serial_code):
-        """
-        Genera una imagen de código de barras Code128 para el serial_code dado.
-        """
-        try:
-            barcode_class = get_barcode_class('code128')
-
-            class CustomImageWriter(ImageWriter):
-                def __init__(self):
-                    super().__init__()
-                    if getattr(sys, 'frozen', False):
-                        base_path = sys._MEIPASS
-                    else:
-                        base_path = os.path.abspath(".")
-                    font_paths = [
-                        os.path.join(base_path, "fonts", "segoeui.ttf"),
-                        os.path.join(base_path, "segoeui.ttf")
-                    ]
-                    self.font_path = next((p for p in font_paths if os.path.exists(p)), None)
-                    if not self.font_path:
-                        print("ADVERTENCIA: No se encontró la fuente 'segoeui.ttf'.")
-
-                def _paint_text(self, xpos, ypos):
-                    text_to_paint = self.text
-                    if self.font_path:
-                        try:
-                            size = int(getattr(self, "font_size", 10))
-                            font = ImageFont.truetype(self.font_path, size)
-                            self._draw.text((xpos, ypos), text_to_paint, fill=self.foreground, font=font)
-                            return
-                        except Exception as e:
-                            print(f"Error al usar fuente personalizada '{self.font_path}': {e}")
-                    self._draw.text((xpos, ypos), text_to_paint, fill=self.foreground)
-
-            writer = CustomImageWriter()
-            options = {
-                'module_height': 8.0,
-                'module_width': 0.2,
-                'quiet_zone': 1.0,
-                'font_size': 7,
-                'text_distance': 1.0,
-            }
-            for opt_key, opt_value in options.items():
-                if hasattr(writer, opt_key):
-                    setattr(writer, opt_key, opt_value)
-
-            if getattr(sys, 'frozen', False):
-                application_path = os.path.dirname(sys.executable)
-            else:
-                application_path = os.path.dirname(os.path.abspath(__file__))
-
-            codes_dir = os.path.join(application_path, "codes")
-            os.makedirs(codes_dir, exist_ok=True)
-            barcode_file_path_no_ext = os.path.join(codes_dir, f"barcode_{serial_code}")
-            barcode_instance = barcode_class(serial_code, writer=writer)
-            full_filename_written = barcode_instance.save(barcode_file_path_no_ext)
-            return full_filename_written
-
-        except Exception as e:
-            print(f"Error crítico al generar código de barras: {e}")
-            traceback.print_exc()
-            QMessageBox.critical(self, "Error de Código de Barras",
-                                 f"No se pudo generar el código de barras para '{serial_code}':\n{e}")
-            return None
-
-    #TODOok
     def setup_autocompletado_fields(self):
         """
         Configura el autocompletado para los campos QLineEdit relevantes.
@@ -903,39 +752,6 @@ class MainWindow(QMainWindow):
             print("Autocompletado configurado para los campos.")
         else:
             print("No se encontraron campos para configurar el autocompletado.")
-    
-    def generate_qr_code(self, data):
-        """
-        Generate QR code image
-        
-        Args:
-            data: Data to encode in the QR code
-            
-        Returns:
-            str: Path to the generated QR code image or None if generation fails
-        """
-        try:
-            # Create filename
-            filename = f"qr_{data.replace('/', '_').replace(' ', '_')}.png"
-            filepath = os.path.join("codes", filename)
-            
-            # Generate QR code
-            qr = qrcode.QRCode(
-                version=1,
-                error_correction=qrcode.constants.ERROR_CORRECT_L,
-                box_size=10,
-                border=4,
-            )
-            qr.add_data(data)
-            qr.make(fit=True)
-            
-            qr_img = qr.make_image(fill_color="black", back_color="white")
-            qr_img.save(filepath)
-            
-            return filepath
-        except Exception as e:
-            print(f"Error generating QR code: {e}")
-            return None
     
     def display_code_image(self, image_path):
         """Display the code image in the QGraphicsView"""
@@ -1302,8 +1118,8 @@ class MainWindow(QMainWindow):
         barcode_paths = {}
         for work_type, abbr in work_type_abbreviations.items():
             if work_type in valores_trabajo:  # Only generate for work types with values
-                serial_code = self.generate_serial_code(ticket_number, referencia, color, tallas_cantidades, abbr)
-                barcode_path = self.generate_barcode(serial_code)
+                serial_code = generate_serial_code(ticket_number, referencia, color, tallas_cantidades, abbr)
+                barcode_path = generate_barcode(serial_code)
                 if not barcode_path:
                     QMessageBox.critical(self, "Error", f"Error al generar el código de barras para {work_type}.")
                     return
@@ -1327,7 +1143,7 @@ class MainWindow(QMainWindow):
                 return
 
         # --- 6. Generación de PDF ---
-        pdf_path = self.generate_vale_pdf(
+        pdf_path = generate_vale_pdf_mejorado(
             ticket_number, referencia, tallas_cantidades, color,
             total_producido_calculado, barcode_paths, valores_trabajo
         )
@@ -1414,268 +1230,6 @@ class MainWindow(QMainWindow):
     def resizeFunction(self):
         """Log window size on resize"""
         print('Height: ' + str(self.height()) + ' | Width: ' + str(self.width()))
-#TODOokk
-
-    def generate_vale_pdf(self, ticket_number, referencia, tallas_cantidades, color,
-                        total_producido_calculado, barcode_paths, valores_trabajo):
-        """
-        Genera un vale de trabajo en PDF con 6 secciones (una por tipo de trabajo)
-        en una sola página, detallando las cantidades por talla y el código de barras para cada sección.
-        The header uses the first work type's barcode path, accessed via barcode_paths.get(first_work_type, "").
-        """
-        safe_referencia = referencia.replace('/', '-').replace('\\', '-')
-        pdf_filename = f"vale_{safe_referencia}_{ticket_number}.pdf"
-        pdf_path = os.path.join("codes", pdf_filename)
-
-        doc = SimpleDocTemplate(pdf_path, pagesize=letter,
-                                leftMargin=0.4*inch, rightMargin=0.4*inch,
-                                topMargin=0.4*inch, bottomMargin=0.4*inch)
-        styles = getSampleStyleSheet()
-        elements = []
-
-        # --- 1. Encabezado General del Ticket ---
-        first_work_type = next(iter(barcode_paths), None)
-        header_barcode_path = barcode_paths.get(first_work_type, "") if first_work_type else ""
-        try:
-            barcode_img_obj = Image(header_barcode_path, width=1.6*inch, height=0.6*inch) if header_barcode_path else Paragraph("(Sin Código)", styles['Normal'])
-            barcode_img_obj.hAlign = 'RIGHT'
-        except Exception as e:
-            print(f"Advertencia: No se pudo cargar la imagen del código de barras {header_barcode_path}: {e}")
-            barcode_img_obj = Paragraph("(Error Código Barras)", styles['Normal'])
-
-        header_content_data = [
-            [Paragraph(f"<b>REFERENCIA:</b> {referencia}", styles['Normal']),
-            Paragraph(f"<b>COLOR:</b> {color}", styles['Normal'])],
-            [Paragraph(f"<b>N° TICKET:</b> {ticket_number}", styles['Normal']),
-            barcode_img_obj]
-        ]
-        
-        header_table = Table(header_content_data, colWidths=[5.2*inch, 2.5*inch])
-        header_table.setStyle(TableStyle([
-            ('VALIGN', (0,0), (-1,-1), 'TOP'),
-            ('LEFTPADDING', (0,0), (-1,-1), 0),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 3),
-            ('SPAN', (1,1), (1,1)),
-            ('ALIGN', (1,1), (1,1), 'RIGHT'),
-        ]))
-        elements.append(header_table)
-        elements.append(Spacer(1, 0.15*inch))
-
-        # --- 2. Secciones por Tipo de Trabajo ---
-        tipos_de_trabajo_definidos = {
-            "CORTE": "Corte",
-            "EMPAQUE": "Empaque",
-            "GUARNECEDOR": "Guarnecedor",
-            "MONTADOR": "Montador",
-            "PLANTILLAS": "Plantillas",
-            "SOLDADOR": "Soldador"
-        }
-
-        tallas_column_headers = [str(s) for s in range(33, 49)]
-        num_tallas_columnas = len(tallas_column_headers)
-        fila_datos_cantidades = [str(tallas_cantidades.get(str(s), "0")) for s in range(33, 49)]
-        ancho_tabla_tallas_disponible = 7.7 * inch
-        ancho_columna_talla = ancho_tabla_tallas_disponible / num_tallas_columnas
-
-        estilo_tabla_tallas = TableStyle([
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#B0B0B0")),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#E8E8E8")),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.black),
-            ('FONTSIZE', (0,0), (-1,-1), 7.5),
-            ('LEFTPADDING', (0,0), (-1,-1), 2),
-            ('RIGHTPADDING', (0,0), (-1,-1), 2),
-            ('TOPPADDING', (0,0), (-1,-1), 2),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 2),
-        ])
-
-        for nombre_display, llave_valor in tipos_de_trabajo_definidos.items():
-            valor_especifico_trabajo = valores_trabajo.get(llave_valor, 0.00)
-            barcode_path = barcode_paths.get(llave_valor, "")
-            try:
-                barcode_img = Image(barcode_path, width=1.6*inch, height=0.6*inch) if barcode_path else Paragraph("(Sin Código)", styles['Normal'])
-                barcode_img.hAlign = 'RIGHT'
-            except Exception as e:
-                print(f"Advertencia: No se pudo cargar la imagen del código de barras {barcode_path}: {e}")
-                barcode_img = Paragraph("(Error Código Barras)", styles['Normal'])
-
-            tabla_tallas_actual = Table([tallas_column_headers, fila_datos_cantidades],
-                                        colWidths=[ancho_columna_talla] * num_tallas_columnas)
-            tabla_tallas_actual.setStyle(estilo_tabla_tallas)
-
-            titulo_seccion = Paragraph(f"<b>{nombre_display}</b>", styles['Normal'])
-            parrafo_valor = Paragraph(f"<b>Valor:</b> {valor_especifico_trabajo:.2f}", styles['Normal'])
-            parrafo_firma = Paragraph("<b>Firma:</b> ________________________", styles['Normal'])
-            parrafo_codigo = barcode_img
-
-            tabla_valor_firma_codigo_data = [
-                [parrafo_valor, parrafo_firma],
-                [parrafo_codigo, ""]
-            ]
-            tabla_valor_firma_codigo = Table(tabla_valor_firma_codigo_data,
-                                            colWidths=[ancho_tabla_tallas_disponible * 0.5,
-                                                        ancho_tabla_tallas_disponible * 0.5])
-            tabla_valor_firma_codigo.setStyle(TableStyle([
-                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                ('ALIGN', (0,0), (0,0), 'LEFT'),
-                ('ALIGN', (0,1), (0,1), 'RIGHT'),
-                ('LEFTPADDING', (0,0), (-1,-1), 0),
-                ('RIGHTPADDING', (0,0), (-1,-1), 0),
-                ('TOPPADDING', (0,0), (-1,-1), 3),
-            ]))
-
-            datos_tabla_seccion = [
-                [titulo_seccion],
-                [tabla_tallas_actual],
-                [tabla_valor_firma_codigo]
-            ]
-            tabla_seccion = Table(datos_tabla_seccion, colWidths=[ancho_tabla_tallas_disponible])
-            tabla_seccion.setStyle(TableStyle([
-                ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#808080")),
-                ('LEFTPADDING', (0,0), (-1,-1), 6),
-                ('RIGHTPADDING', (0,0), (-1,-1), 6),
-                ('TOPPADDING', (0,0), (-1,-1), 6),
-                ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-                ('ALIGN', (0,0), (0,0), 'CENTER'),
-                ('BOTTOMPADDING', (0,0), (0,0), 5),
-            ]))
-            
-            elements.append(tabla_seccion)
-            elements.append(Spacer(1, 0.1*inch))
-
-        parrafo_total_general = Paragraph(f"<b>TOTAL GENERAL PRODUCIDO (UNIDADES): {total_producido_calculado}</b>", styles['h3'])
-        parrafo_total_general.hAlign = 'CENTER'
-        elements.append(Spacer(1, 0.15*inch))
-        elements.append(parrafo_total_general)
-
-        try:
-            doc.build(elements)
-            return pdf_path
-        except Exception as e:
-            print(f"Error al generar el PDF del vale '{pdf_filename}': {e}")
-            QMessageBox.critical(self, "Error PDF", f"No se pudo generar el PDF:\n{e}")
-            return None
-        
-
-    def generate_vale_pdf_funcional(self, ticket_numbers, tipo_trabajo, referencia, tallas_cantidades, color, total_producido, serial_code_path):
-        """
-        Generate a PDF work voucher with multiple tickets on a single page.
-        """
-        # Create PDF filename and path
-        pdf_filename = f"vale_{tipo_trabajo}_{ticket_numbers}.pdf"
-        pdf_path = os.path.join("codes", pdf_filename)
-
-        # Create the PDF document
-        doc = SimpleDocTemplate(pdf_path, pagesize=letter,
-                                leftMargin=30, rightMargin=30,
-                                topMargin=30, bottomMargin=30)
-        styles = getSampleStyleSheet()
-        elements = []
-
-        # Define sizes (columns: 33 to 48 inclusive)
-        sizes = list(range(33, 49))
-        size_row = [str(size) for size in sizes]
-
-        # Calculate how many vales we need to fill the PDF
-        vales_per_page = 5  # Based on your PageBreak logic
-        total_pages_needed = 1  # You can adjust this or make it a parameter
-        total_vales_needed = vales_per_page * total_pages_needed
-        
-        # If we have fewer ticket numbers than needed, repeat them
-        extended_ticket_numbers = []
-        ticket_count = len(ticket_numbers)
-        
-        for i in range(total_vales_needed):
-            # Cycle through the ticket numbers if we need more vales than tickets
-            ticket_index = i % ticket_count
-            extended_ticket_numbers.append(ticket_numbers[ticket_index])
-        
-        # Create a frame for multiple tickets
-        for i, ticket_number in enumerate(extended_ticket_numbers):
-            # Prepare quantities row
-            qty_row = [str(tallas_cantidades.get(str(size), 0)) for size in sizes]
-
-            # Prepare barcode image
-            barcode_img = Image(serial_code_path, width=100, height=40)
-
-            # Create main container table
-            container_data = [[
-                Paragraph(f"{tipo_trabajo.upper()}", styles['Heading2']),
-                "",
-                barcode_img
-            ]]
-            container_table = Table(container_data, colWidths=[300, 50, 200])
-            container_table.setStyle(TableStyle([
-                ('ALIGN', (0, 0), (0, 0), 'LEFT'),
-                ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('BOX', (0, 0), (-1, -1), 2, colors.green)
-            ]))
-
-            # Ticket details table
-            details_data = [
-                ["Referencia:", referencia, "Color:", color, f"N° {ticket_number}"]
-            ]
-            details_table = Table(details_data, colWidths=[100, 150, 80, 100, 100])
-            details_table.setStyle(TableStyle([
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-                ('BOX', (0, 0), (-1, -1), 1, colors.green)
-            ]))
-
-            # Sizes and quantities table
-            sizes_table = Table([size_row, qty_row], colWidths=[30] * len(size_row))
-            sizes_table.setStyle(TableStyle([
-                ('GRID', (0, 0), (-1, -1), 1, colors.green),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold')
-            ]))
-
-            # Footer table
-            footer_data = [["Firma:", "", "", "Total:", str(total_producido)]]
-            footer_table = Table(footer_data, colWidths=[100, 150, 100, 80, 100])
-            footer_table.setStyle(TableStyle([
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-                ('BOX', (0, 0), (-1, -1), 1, colors.green)
-            ]))
-
-            # **SOLUCIÓN**: Agrupar todos los componentes en una sola tabla contenedora
-            complete_vale_data = [
-                [container_table],
-                [details_table],
-                [sizes_table],
-                [footer_table]
-            ]
-            
-            complete_vale_table = Table(complete_vale_data, colWidths=[530])
-            complete_vale_table.setStyle(TableStyle([
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                ('LEFTPADDING', (0, 0), (-1, -1), 0),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-                ('TOPPADDING', (0, 0), (-1, -1), 0),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
-            ]))
-
-            # Agregar el vale completo como una unidad
-            elements.append(KeepTogether([complete_vale_table]))
-            
-            # Agregar espaciado entre vales
-            if i < len(extended_ticket_numbers) - 1:
-                elements.append(Spacer(1, 10))
-
-            # Insert page break every 3 tickets
-            if (i + 1) % 5 == 0 and (i + 1) < len(extended_ticket_numbers):
-                elements.append(PageBreak())
-
-        # Build PDF
-        doc.build(elements)
-        return pdf_path
-
-
-
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
