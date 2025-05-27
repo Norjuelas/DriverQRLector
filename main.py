@@ -10,12 +10,16 @@ import hashlib
 import traceback
 from datetime import datetime
 from io import BytesIO
+import time
+import datetime
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 
 import qrcode
 import barcode
+from barcode import get_barcode_class
+
 from barcode.writer import ImageWriter
 from PIL import ImageFont
 
@@ -100,7 +104,7 @@ class MainWindow(QMainWindow):
         UIFunctions.labelDescription(self, '2025')
         
         # Set window size
-        startSize = QSize(1000, 720)
+        startSize = QSize(1300, 720)
         self.resize(startSize)
         self.setMinimumSize(startSize)
         # UIFunctions.enableMaximumSize(self, 500, 720)
@@ -174,7 +178,6 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Error", f"Error al iniciar eliminación: {str(e)}")
             self.ui.EliminarTODO.setEnabled(True)
             self.ui.EliminarTODO.setText("Eliminar TODO")
-    
     def eliminar_todo_simple(self):
         """
         Versión simple sin threading - buena para pocos archivos
@@ -275,52 +278,96 @@ class MainWindow(QMainWindow):
             # Rehabilitar botón
             self.ui.EliminarTODO.setEnabled(True)
             self.ui.EliminarTODO.setText("Eliminar TODO")
+    #TODOok
 
     def setup_code_generator(self):
         """
-        Setup the barcode and QR code generator functionality
+        Configura la funcionalidad del generador de códigos y el archivo Excel.
         """
-        # Define excel path and create barcode directory if needed
+        # Definir la ruta del Excel y el nombre de la hoja de vales
         self.excel_path = "trabajos_database.xlsx"
-        self.vales_sheet_name = "Vales"  # Sheet name for vales data
-        
+        self.vales_sheet_name = "Vales"  # Nombre de la hoja para los datos de los vales
+
+        # Crear el directorio "codes" si no existe para guardar las imágenes de los códigos
         if not os.path.exists("codes"):
             os.makedirs("codes")
-        
-        # Create Excel file if it doesn't exist
+
+        # Definir las cabeceras para la hoja "Trabajos"
+        trabajos_headers = ["Código Serial", "Número Ticket", "Referencia", "Color"]
+        # Añadir cabeceras para las cantidades de cada talla (33 a 48)
+        for i in range(33, 49):
+            trabajos_headers.append(f"Cant_T{i}")
+        # Añadir el resto de las cabeceras para "Trabajos"
+        trabajos_headers.extend([
+            "Total Producido", "Valor Corte", "Valor Empaque", "Valor Guarnecedor",
+            "Valor Montador", "Valor Plantillas", "Valor Soldador",
+            "Tipo Código", "Ruta Imagen"
+        ])
+        # Añadir columnas para los códigos seriales por tipo de trabajo
+        work_type_abbreviations = {
+            'Corte': 'C', 'Empaque': 'E', 'Guarnecedor': 'G',
+            'Montador': 'M', 'Plantillas': 'P', 'Soldador': 'S'
+        }
+        for work_type, abbr in work_type_abbreviations.items():
+            trabajos_headers.append(f"Código_{work_type}")
+
+        # Definir las cabeceras para la hoja "Vales"
+        vales_headers = [
+            "ID_Vale", "EmpleadoID", "FechaHora_Generacion", "Numero_Ticket_Asociado",
+            "Referencia_Asociada", "Color_Trabajo", "Resumen_Tallas_Cantidades",
+            "Total_Producido_Trabajo", "Suma_Valores_Trabajos", "Codigo_Serial_Trabajo_Asociado"
+        ]
+
+        # Crear el archivo Excel si no existe y añadir las hojas con sus cabeceras
         if not os.path.exists(self.excel_path):
             wb = Workbook()
-            ws = wb.active
-            ws.title = "Trabajos"
-            ws.append(["Código Serial", "Tipo Trabajo", "Referencia", "Número Ticket",
-                     "Talla", "Color", "Valor", "Total Producido", "Tipo Código", "Ruta Imagen"])
             
-            # Create Vales sheet
-            vales_ws = wb.create_sheet(title=self.vales_sheet_name)
-            vales_ws.append(["ID", "EmpleadoID", "Fecha", "Tipo Trabajo", "Número Ticket",
-                          "Referencia", "Talla", "Color", "Valor", "Total Producido", "Código Serial"])
+            # Configurar la hoja "Trabajos"
+            ws_trabajos = wb.active
+            ws_trabajos.title = "Trabajos"
+            ws_trabajos.append(trabajos_headers)
+            
+            # Configurar la hoja "Vales"
+            ws_vales = wb.create_sheet(title=self.vales_sheet_name)
+            ws_vales.append(vales_headers)
             
             wb.save(self.excel_path)
         else:
-            # Check if Vales sheet exists, if not create it
+            # Si el archivo Excel ya existe, cargar el libro de trabajo
             wb = load_workbook(self.excel_path)
-            if self.vales_sheet_name not in wb.sheetnames:
-                vales_ws = wb.create_sheet(title=self.vales_sheet_name)
-                vales_ws.append(["ID", "EmpleadoID", "Fecha", "Tipo Trabajo", "Número Ticket",
-                              "Referencia", "Talla", "Color", "Valor", "Total Producido", "Código Serial"])
+            
+            # Verificar si las cabeceras de "Trabajos" necesitan actualización
+            ws_trabajos = wb["Trabajos"]
+            current_headers = [cell.value for cell in ws_trabajos[1]]
+            if current_headers != trabajos_headers:
+                print("Actualizando cabeceras de la hoja 'Trabajos'...")
+                ws_trabajos.delete_rows(1)  # Eliminar la fila de cabeceras antigua
+                ws_trabajos.insert_rows(1)  # Insertar una nueva fila para las cabeceras
+                for col_idx, header in enumerate(trabajos_headers, 1):
+                    ws_trabajos.cell(row=1, column=col_idx).value = header
                 wb.save(self.excel_path)
-        
-        # Connect the save button
-        self.ui.pushButtonGuardar.clicked.connect(self.on_save_button_clicked)
-        
-        # Add code type selector (radio buttons)
+
+            # Verificar si la hoja "Vales" existe; si no, crearla con sus cabeceras
+            if self.vales_sheet_name not in wb.sheetnames:
+                ws_vales = wb.create_sheet(title=self.vales_sheet_name)
+                ws_vales.append(vales_headers)
+                wb.save(self.excel_path)
+
+        # Conectar el botón de guardar a la función correspondiente
+        if hasattr(self.ui, 'pushButtonGuardar'):
+            self.ui.pushButtonGuardar.clicked.connect(self.on_save_button_clicked)
+        else:
+            print("Advertencia: self.ui.pushButtonGuardar no encontrado.")
+            
+        # Configurar el selector de tipo de código (radio buttons, etc.)
         self.setup_code_type_selector()
         
-        # Ensure the QGraphicsView has a scene
-        if not hasattr(self.ui, 'PreviwImage'):
-            print("Warning: PreviwImage not found in UI")
-        elif self.ui.PreviwImage.scene() is None:
-            self.ui.PreviwImage.setScene(QtWidgets.QGraphicsScene())
+        # Asegurar que el QGraphicsView para la previsualización de la imagen tenga una escena
+        if hasattr(self.ui, 'PreviwImage'):  # Corregir el nombre si es necesario
+            if self.ui.PreviwImage.scene() is None:
+                self.ui.PreviwImage.setScene(QtWidgets.QGraphicsScene(self))
+        else:
+            print("Advertencia: self.ui.PreviwImage no encontrado.")
     
     def setup_code_type_selector(self):
         """Setup UI elements to select between barcode and QR code"""
@@ -351,56 +398,62 @@ class MainWindow(QMainWindow):
     
     def setup_code_reader(self):
         """Setup the code reader functionality and TableView inside WidgetTabla"""
-        # Create a code reader input field if it doesn't exist
-        if not hasattr(self.ui, 'codeReaderInput'):
-            # Code reader input field
-            self.ui.codeReaderInput = QLineEdit()
+        
+        # El codeReaderInput YA existe en tu UI, solo necesitamos conectar el signal
+        if hasattr(self.ui, 'codeReaderInput'):
+            print("codeReaderInput encontrado en UI")
+            # Configurar el input existente
             self.ui.codeReaderInput.setPlaceholderText("Escanear o ingresar código aquí...")
             self.ui.codeReaderInput.setMinimumWidth(250)
+            
+            # IMPORTANTE: Conectar el signal returnPressed
             self.ui.codeReaderInput.returnPressed.connect(self.on_code_scanned)
-            
-            # Add to layout
-            if hasattr(self.ui, 'verticalLayout'):
-                # Create a label for the input
-                label = QLabel("Lector de Códigos:")
-                
-                # Create horizontal layout for label and input
-                h_layout = QHBoxLayout()
-                h_layout.addWidget(label)
-                h_layout.addWidget(self.ui.codeReaderInput)
-                
-                # Create a container widget
-                container = QWidget()
-                container.setLayout(h_layout)
-                
-                # Add to vertical layout
-                self.ui.verticalLayout.addWidget(container)
+            print("Signal returnPressed conectado")
+        else:
+            print("ERROR: codeReaderInput no encontrado en UI")
+            return
         
-        # Access the WidgetTabla from UI and setup table inside ac
+        # Access the WidgetTabla from UI and setup table
         if hasattr(self.ui, 'WidgetTabla'):
-            # Create table layout
-            table_layout = QVBoxLayout(self.ui.WidgetTabla)
-            self.ui.WidgetTabla.setLayout(table_layout)
+            print("WidgetTabla encontrado")
             
-            # Create TableView
-            self.ui.tableViewVale = QTableView(self.ui.WidgetTabla)
-            self.ui.tableViewVale.setMinimumHeight(200)
+            # Solo crear el layout si WidgetTabla no tiene uno
+            if self.ui.WidgetTabla.layout() is None:
+                table_layout = QVBoxLayout(self.ui.WidgetTabla)
+                self.ui.WidgetTabla.setLayout(table_layout)
+                print("Layout creado para WidgetTabla")
+            else:
+                table_layout = self.ui.WidgetTabla.layout()
+                print("Usando layout existente de WidgetTabla")
             
-            # Create the model for the table
-            self.table_model = QtGui.QStandardItemModel()
-            self.table_model.setHorizontalHeaderLabels([
-                "ID", "Código Serial", "Tipo Trabajo", "Referencia", "Número Ticket", 
-                "Talla", "Color", "Valor", "Total Producido", "Empleado"
-            ])
-            
-            # Set model and adjust view
-            self.ui.tableViewVale.setModel(self.table_model)
-            self.ui.tableViewVale.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-            
-            # Add TableView to WidgetTabla's layout
-            table_layout.addWidget(self.ui.tableViewVale)
+            # Solo crear la tabla si no existe
+            if not hasattr(self.ui, 'tableViewVale'):
+                print("Creando tableViewVale")
+                # Create TableView
+                self.ui.tableViewVale = QTableView(self.ui.WidgetTabla)
+                self.ui.tableViewVale.setMinimumHeight(200)
+                
+                # Create the model for the table
+                self.table_model = QtGui.QStandardItemModel()
+                self.table_model.setHorizontalHeaderLabels([
+                    "Código Serial", "Número Ticket", "Referencia", "Color", 
+                    "Total Producido", "Valor Corte", "Valor Empaque",
+                    "Valor Guarnecedor", "Valor Montador", "Valor Plantillas",
+                    "Valor Soldador"
+                ])
+                
+                # Set model and adjust view
+                self.ui.tableViewVale.setModel(self.table_model)
+                self.ui.tableViewVale.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+                
+                # Add TableView to WidgetTabla's layout
+                table_layout.addWidget(self.ui.tableViewVale)
+                print("tableViewVale creado y agregado")
+            else:
+                print("tableViewVale ya existe")
         else:
             print("Warning: WidgetTabla not found in UI")
+
 
 
     def setup_add_employee_button(self):
@@ -499,7 +552,7 @@ class MainWindow(QMainWindow):
             print(f"Error en add_employee_with_validation: {e}")
 
     def setup_employee_management(self):
-        """Carga empleados en el ComboBox y conecta el botón Registrar Vale."""
+        """Carga empleados en el ComboBox, conecta el botón Registrar Vale y limpia la tabla de previsualización."""
         try:
             # --- Manejo de Archivo Excel ---
             try:
@@ -512,10 +565,10 @@ class MainWindow(QMainWindow):
                     empleados_ws = wb.active
                     empleados_ws.title = "Empleados"
                 else:
-                     empleados_ws = wb.create_sheet(title="Empleados")
-                # Añadir encabezados al crear
+                    empleados_ws = wb.create_sheet(title="Empleados")
+                # Añadir encabezados
                 empleados_ws.append(["Nombre", "Cedula", "Celular", "Correo", "EmpleadoId"])
-                # Puedes añadir un empleado de ejemplo si quieres
+                # Añadir un empleado de ejemplo
                 empleados_ws.append(["Juan Pérez (Ejemplo)", "1234567890", "3001234567", "juan@example.com", "E001"])
                 wb.save(self.excel_path)
                 print(f"Archivo Excel '{self.excel_path}' creado con hoja 'Empleados'.")
@@ -524,491 +577,171 @@ class MainWindow(QMainWindow):
                 print(f"Creando hoja 'Empleados' en archivo existente: {self.excel_path}")
                 empleados_ws = wb.create_sheet(title="Empleados")
                 empleados_ws.append(["Nombre", "Cedula", "Celular", "Correo", "EmpleadoId"])
-                # Puedes añadir un empleado de ejemplo si quieres
                 empleados_ws.append(["Juan Pérez (Ejemplo)", "1234567890", "3001234567", "juan@example.com", "E001"])
                 wb.save(self.excel_path)
             else:
                 empleados_ws = wb["Empleados"]
 
-            # --- Configuración del ComboBox (Asumiendo que existe en self.ui) ---
+            # --- Configuración del ComboBox ---
             if hasattr(self.ui, 'EmpleadosBox'):
-                self.ui.EmpleadosBox.clear() # Limpiar items previos
-                self.ui.EmpleadosBox.setMinimumWidth(200) # Establecer ancho mínimo si es necesario
+                self.ui.EmpleadosBox.clear()  # Limpiar items previos
+                self.ui.EmpleadosBox.setMinimumWidth(200)
 
                 employees_loaded = False
-                # Iterar desde la fila 2 para saltar encabezados (ajusta si no tienes encabezados)
-                for row in empleados_ws.iter_rows(min_row=2, max_col=5): # Leer solo las 5 columnas necesarias
-                    # row es una tupla de celdas
-                    if len(row) >= 5 and row[0].value: # Verificar que hay nombre y suficientes columnas
-                        name = str(row[0].value) # Columna A (Nombre)
-                        emp_id = str(row[4].value) if row[4].value else "SIN-ID" # Columna E (EmpleadoId)
-
-                        # Añadir item: Texto visible y dato asociado (emp_id)
+                for row in empleados_ws.iter_rows(min_row=2, max_col=5):
+                    if len(row) >= 5 and row[0].value:
+                        name = str(row[0].value)
+                        emp_id = str(row[4].value) if row[4].value else "SIN-ID"
                         self.ui.EmpleadosBox.addItem(f"{name} ({emp_id})", emp_id)
                         employees_loaded = True
 
                 if not employees_loaded:
-                    self.ui.EmpleadosBox.addItem("Sin empleados registrados", "") # Opción por defecto
+                    self.ui.EmpleadosBox.addItem("Sin empleados registrados", "")
                     print("No se cargaron empleados desde la hoja 'Empleados'.")
                 else:
                     print(f"Se cargaron {self.ui.EmpleadosBox.count()} empleados.")
-
             else:
-                # Error crítico si el ComboBox no está en la UI
                 print("ERROR: El QComboBox 'EmpleadosBox' no se encontró en la UI.")
-                # Podrías deshabilitar el botón si el combo no existe
                 if hasattr(self.ui, 'btnRegisterVale'):
                     self.ui.btnRegisterVale.setEnabled(False)
-                return # Salir de la configuración si falta el combo
+                return
 
-            # --- Conexión del Botón (Asumiendo que existe en self.ui) ---
-# --- Conexión del Botón (Asumiendo que existe en self.ui) ---
-            if hasattr(self.ui, 'btnRegisterVale'):
-                # Verificar que el método al que conectar existe en esta clase
-                if hasattr(self, 'register_vale'):
-                    # Desconectar primero (de forma segura) por si esta función se llama múltiples veces
-                    try:
-                        # Intenta desconectar cualquier conexión previa de 'clicked'
-                        self.ui.btnRegisterVale.clicked.disconnect()
-                        # Opcional: puedes añadir un print aquí si quieres saber cuándo la desconexión SÍ funciona
-                        # print("Desconexión previa de btnRegisterVale.clicked exitosa.")
-                    except RuntimeError:
-                        # Ignora el error si no había nada conectado previamente.
-                        # print("Advertencia: No se pudo desconectar btnRegisterVale.clicked (probablemente no estaba conectado).")
-                        pass
-                    # Podrías añadir 'except TypeError: pass' también por si acaso, aunque el error fue RuntimeError
-
-                    # Conectar la señal 'clicked' al método 'register_vale'
-                    # ESTA ES LA LÍNEA IMPORTANTE AHORA
-                    self.ui.btnRegisterVale.clicked.connect(self.register_vale)
-                    print("Botón 'btnRegisterVale' conectado correctamente.") # <-- ¡Busca este mensaje!
-                    self.ui.btnRegisterVale.setEnabled(True) # Asegurarse de que esté habilitado
-                else:
-                     # Error si el método no existe
-                    print("ERROR: El método 'register_vale' no está definido en esta clase. El botón no funcionará.")
-                    self.ui.btnRegisterVale.setEnabled(False) # Deshabilitar el botón
+            # --- Limpiar la tabla de previsualización ---
+            if hasattr(self.ui, 'tableViewVale') and hasattr(self, 'table_model'):
+                self.table_model.clear()  # Limpiar todas las filas
+                self.table_model.setHorizontalHeaderLabels([
+                    "Código Serial", "Número Ticket", "Referencia", "Color",
+                    "Total Producido", "Valor Corte", "Valor Empaque",
+                    "Valor Guarnecedor", "Valor Montador", "Valor Plantillas",
+                    "Valor Soldador"
+                ])
+                self.ui.tableViewVale.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+                print("Tabla de previsualización 'tableViewVale' limpiada.")
             else:
-                # Error crítico si el botón no está en la UI
+                print("Advertencia: No se pudo limpiar la tabla 'tableViewVale' porque no existe o no tiene modelo.")
+
+            # --- Conexión del Botón Registrar Vale ---
+            if hasattr(self.ui, 'btnRegisterVale'):
+                if hasattr(self, 'register_vale'):
+                    try:
+                        self.ui.btnRegisterVale.clicked.disconnect()
+                    except RuntimeError:
+                        pass
+                    self.ui.btnRegisterVale.clicked.connect(self.register_vale)
+                    self.ui.btnRegisterVale.setEnabled(True)
+                    print("Botón 'btnRegisterVale' conectado correctamente.")
+                else:
+                    print("ERROR: El método 'register_vale' no está definido en esta clase.")
+                    self.ui.btnRegisterVale.setEnabled(False)
+            else:
                 print("ERROR: El QPushButton 'btnRegisterVale' no se encontró en la UI.")
 
         except FileNotFoundError:
-             print(f"ERROR CRÍTICO: No se pudo encontrar ni crear el archivo Excel en {self.excel_path}")
+            print(f"ERROR CRÍTICO: No se pudo encontrar ni crear el archivo Excel en {self.excel_path}")
         except Exception as e:
             print(f"Error inesperado durante setup_employee_management: {e}")
-            traceback.print_exc() # Imprime el rastreo completo del error para depuración
-
-    def update_employee_reports(self):
-        """
-        Crea o actualiza hojas individuales por cada empleado en el archivo Excel.
-        Estas hojas contienen:
-        1. Una tabla con todos los vales del empleado
-        2. La suma total del campo Valor
-        3. Consolidados semanales, mensuales y anuales
-        """
-        try:
-            print("Actualizando reportes de empleados...")
+            traceback.print_exc()
             
+    def update_employee_reports(self):
+        """Genera un reporte de empleados basado en los datos de la hoja 'Vales' y lo muestra en tableViewVale."""
+        try:
             # Cargar el archivo Excel
             wb = load_workbook(self.excel_path)
-            
-            # Verificar si existen las hojas necesarias
-            if "Vales" not in wb.sheetnames or "Empleados" not in wb.sheetnames:
-                QMessageBox.warning(self, "Error", "No se encontraron las hojas 'Vales' o 'Empleados' en el archivo Excel.")
-                return
-            
-            # Obtener datos de empleados
-            empleados_ws = wb["Empleados"]
+            ws_vales = wb[self.vales_sheet_name]
+            ws_empleados = wb["Empleados"]
+
+            # Obtener información de empleados
             empleados = {}
-            for row in list(empleados_ws.rows)[1:]:  # Saltar el encabezado
-                if row[0].value and row[4].value:  # Nombre y EmpleadoId
-                    empleados[row[4].value] = {
-                        "nombre": row[0].value,
-                        "cedula": row[1].value,
-                        "celular": row[2].value,
-                        "correo": row[3].value
+            for row in ws_empleados.iter_rows(min_row=2, max_col=5, values_only=True):
+                if len(row) >= 5 and row[4]:
+                    empleados[row[4]] = {
+                        "Nombre": row[0] or "Sin Nombre",
+                        "Cedula": row[1] or "",
+                        "Celular": row[2] or "",
+                        "Correo": row[3] or ""
                     }
-            
-            if not empleados:
-                QMessageBox.information(self, "Info", "No hay empleados registrados en la base de datos.")
-                return
-            
-            # Obtener datos de vales
-            vales_ws = wb["Vales"]
-            vales_data = []
-            for row in list(vales_ws.rows)[1:]:  # Saltar el encabezado
-                # Verificar si la fila tiene suficientes columnas y datos necesarios
-                if len(row) > 8 and row[1].value is not None:  # Al menos necesitamos EmpleadoID
-                    try:
-                        # Convertir valor a número si es posible
-                        valor = None
-                        if len(row) > 8 and row[8].value is not None:
-                            if isinstance(row[8].value, (int, float)):
-                                valor = float(row[8].value)
-                            elif isinstance(row[8].value, str):
-                                # Limpiar string de caracteres no numéricos
-                                valor_str = ''.join(c for c in row[8].value if c.isdigit() or c == '.')
-                                if valor_str:
-                                    valor = float(valor_str) if '.' in valor_str else int(valor_str)
-                        
-                        vales_data.append({
-                            "id": row[0].value if len(row) > 0 else None,
-                            "empleado_id": row[1].value,  # Campo obligatorio
-                            "fecha": row[2].value if len(row) > 2 else None,
-                            "tipo_trabajo": row[3].value if len(row) > 3 else None,
-                            "num_ticket": row[4].value if len(row) > 4 else None,
-                            "referencia": row[5].value if len(row) > 5 else None,
-                            "talla": row[6].value if len(row) > 6 else None,
-                            "color": row[7].value if len(row) > 7 else None,
-                            "valor": valor,  # Ya convertido a número
-                            "total_producido": row[9].value if len(row) > 9 else None,
-                            "codigo_serial": row[10].value if len(row) > 10 else None
-                        })
-                    except Exception as e:
-                        print(f"Error al procesar fila de vale: {str(e)}")
-            
-            # Para cada empleado, crear o actualizar su hoja
-            for empleado_id, empleado_info in empleados.items():
-                # Obtener vales del empleado
-                vales_empleado = [vale for vale in vales_data if vale["empleado_id"] == empleado_id]
-                
-                # Si el empleado ya tiene una hoja, eliminarla para recrearla
-                sheet_name = f"Empleado_{empleado_id}"
-                if sheet_name in wb.sheetnames:
-                    del wb[sheet_name]
-                
-                # Crear nueva hoja para el empleado
-                emp_ws = wb.create_sheet(title=sheet_name)
-                
-                # Información del empleado en la parte superior
-                emp_ws['A1'] = "INFORMACIÓN DEL EMPLEADO"
-                emp_ws['A1'].font = Font(bold=True, size=14)
-                emp_ws.merge_cells('A1:F1')
-                
-                emp_ws['A2'] = "Nombre:"
-                emp_ws['B2'] = empleado_info["nombre"]
-                emp_ws['A3'] = "Cédula:"
-                emp_ws['B3'] = empleado_info["cedula"]
-                emp_ws['A4'] = "Celular:"
-                emp_ws['B4'] = empleado_info["celular"]
-                emp_ws['A5'] = "Correo:"
-                emp_ws['B5'] = empleado_info["correo"]
-                emp_ws['A6'] = "ID Empleado:"
-                emp_ws['B6'] = empleado_id
-                
-                # Dar formato a la información del empleado
-                for row in range(2, 7):
-                    emp_ws[f'A{row}'].font = Font(bold=True)
-                
-                # Espacio antes de la tabla de vales
-                emp_ws['A8'] = "DETALLE DE VALES"
-                emp_ws['A8'].font = Font(bold=True, size=12)
-                emp_ws.merge_cells('A8:F8')
-                
-                # Encabezados tabla de vales
-                headers = ["ID", "Fecha", "Tipo Trabajo", "# Ticket", "Referencia", 
-                        "Talla", "Color", "Valor", "Total Producido", "Código Serial"]
-                for col, header in enumerate(headers, start=1):
-                    cell = emp_ws.cell(row=9, column=col)
-                    cell.value = header
-                    cell.font = Font(bold=True)
-                    cell.fill = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
-                    cell.alignment = Alignment(horizontal='center')
-                
-                # Datos de vales
-                valor_total = 0
-                for row_idx, vale in enumerate(vales_empleado, start=10):
-                    emp_ws.cell(row=row_idx, column=1).value = vale["id"]
-                    
-                    # Formato de fecha
-                    if vale["fecha"] is not None:
-                        if isinstance(vale["fecha"], datetime.datetime):
-                            emp_ws.cell(row=row_idx, column=2).value = vale["fecha"].strftime("%Y-%m-%d")
-                        else:
-                            emp_ws.cell(row=row_idx, column=2).value = str(vale["fecha"])
-                    else:
-                        emp_ws.cell(row=row_idx, column=2).value = "Sin fecha"
-                    
-                    emp_ws.cell(row=row_idx, column=3).value = vale["tipo_trabajo"]
-                    emp_ws.cell(row=row_idx, column=4).value = vale["num_ticket"]
-                    emp_ws.cell(row=row_idx, column=5).value = vale["referencia"]
-                    emp_ws.cell(row=row_idx, column=6).value = vale["talla"]
-                    emp_ws.cell(row=row_idx, column=7).value = vale["color"]
-                    
-                    # Valor con formato
-                    valor_cell = emp_ws.cell(row=row_idx, column=8)
-                    valor_cell.value = vale["valor"]
-                    valor_cell.number_format = '#,##0'
-                    
-                    emp_ws.cell(row=row_idx, column=9).value = vale["total_producido"]
-                    emp_ws.cell(row=row_idx, column=10).value = vale["codigo_serial"]
-                    
-                    # Convertir valor a número antes de sumar (maneja tanto strings como números)
-                    if vale["valor"] is not None:
-                        try:
-                            # Si es string, convertir a entero o float
-                            if isinstance(vale["valor"], str):
-                                # Eliminar cualquier caracter no numérico (como símbolos de moneda o comas)
-                                valor_numerico = ''.join(c for c in vale["valor"] if c.isdigit() or c == '.')
-                                if valor_numerico:
-                                    if '.' in valor_numerico:
-                                        valor_total += float(valor_numerico)
-                                    else:
-                                        valor_total += int(valor_numerico)
-                            else:
-                                # Si ya es número, sumar directamente
-                                valor_total += float(vale["valor"])
-                        except (ValueError, TypeError):
-                            print(f"Error al convertir valor '{vale['valor']}' a número, se ignora para el total")
-                
-                last_row = len(vales_empleado) + 10
-                
-                # Total de vales
-                emp_ws.cell(row=last_row, column=7).value = "TOTAL:"
-                emp_ws.cell(row=last_row, column=7).font = Font(bold=True)
-                emp_ws.cell(row=last_row, column=7).alignment = Alignment(horizontal='right')
-                
-                total_cell = emp_ws.cell(row=last_row, column=8)
-                total_cell.value = valor_total
-                total_cell.font = Font(bold=True)
-                total_cell.number_format = '#,##0'
-                
-                # Ajustar anchos de columna
-                for col in range(1, 11):
-                    emp_ws.column_dimensions[chr(64 + col)].width = 15
-                
-                # Espacio antes de los consolidados
-                consolidado_start_row = last_row + 3
-                emp_ws.cell(row=consolidado_start_row, column=1).value = "CONSOLIDADO DE PAGOS"
-                emp_ws.cell(row=consolidado_start_row, column=1).font = Font(bold=True, size=12)
-                emp_ws.merge_cells(f'A{consolidado_start_row}:F{consolidado_start_row}')
-                
-                # Encabezados tablas de consolidado
-                consolidado_start_row += 1
-                
-                # Tabla Semanal
-                emp_ws.cell(row=consolidado_start_row, column=1).value = "CONSOLIDADO SEMANAL"
-                emp_ws.cell(row=consolidado_start_row, column=1).font = Font(bold=True)
-                emp_ws.merge_cells(f'A{consolidado_start_row}:C{consolidado_start_row}')
-                
-                consolidado_start_row += 1
-                emp_ws.cell(row=consolidado_start_row, column=1).value = "Semana"
-                emp_ws.cell(row=consolidado_start_row, column=2).value = "Fecha Inicio"
-                emp_ws.cell(row=consolidado_start_row, column=3).value = "Fecha Fin"
-                emp_ws.cell(row=consolidado_start_row, column=4).value = "Valor Total"
-                
-                # Estilo encabezados
-                for col in range(1, 5):
-                    cell = emp_ws.cell(row=consolidado_start_row, column=col)
-                    cell.font = Font(bold=True)
-                    cell.fill = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
-                    cell.alignment = Alignment(horizontal='center')
-                
-                # Calcular consolidado semanal
-                weekly_data = {}
-                for vale in vales_empleado:
-                    if vale["fecha"] is not None and isinstance(vale["fecha"], datetime.datetime):
-                        try:
-                            # Obtener el número de semana del año
-                            year = vale["fecha"].year
-                            week_num = vale["fecha"].isocalendar()[1]
-                            week_key = f"{year}-W{week_num:02d}"
-                            
-                            # Calcular fecha inicio y fin de semana
-                            # El lunes de la semana
-                            start_of_week = vale["fecha"] - datetime.timedelta(days=vale["fecha"].weekday())
-                            # El domingo de la semana
-                            end_of_week = start_of_week + datetime.timedelta(days=6)
-                        except Exception as e:
-                            print(f"Error al procesar fecha para consolidado semanal: {str(e)}")
-                            continue  # Salta este vale
-                        
-                        if week_key not in weekly_data:
-                            weekly_data[week_key] = {
-                                "start_date": start_of_week,
-                                "end_date": end_of_week,
-                                "total": 0
-                            }
-                        
-                        # Convertir valor a número antes de sumar
-                        if vale["valor"] is not None:
-                            try:
-                                # Si es string, convertir a número
-                                if isinstance(vale["valor"], str):
-                                    valor_numerico = ''.join(c for c in vale["valor"] if c.isdigit() or c == '.')
-                                    if valor_numerico:
-                                        if '.' in valor_numerico:
-                                            weekly_data[week_key]["total"] += float(valor_numerico)
-                                        else:
-                                            weekly_data[week_key]["total"] += int(valor_numerico)
-                                else:
-                                    # Si ya es número, sumar directamente
-                                    weekly_data[week_key]["total"] += float(vale["valor"])
-                            except (ValueError, TypeError):
-                                print(f"Error al convertir valor '{vale['valor']}' para suma semanal")
-                
-                # Llenar datos semanales
-                row_idx = consolidado_start_row + 1
-                for week_key, data in sorted(weekly_data.items()):
-                    emp_ws.cell(row=row_idx, column=1).value = week_key
-                    emp_ws.cell(row=row_idx, column=2).value = data["start_date"].strftime("%Y-%m-%d")
-                    emp_ws.cell(row=row_idx, column=3).value = data["end_date"].strftime("%Y-%m-%d")
-                    
-                    valor_cell = emp_ws.cell(row=row_idx, column=4)
-                    valor_cell.value = data["total"]
-                    valor_cell.number_format = '#,##0'
-                    
-                    row_idx += 1
-                
-                # Espacio entre tablas
-                row_idx += 2
-                
-                # Tabla Mensual
-                emp_ws.cell(row=row_idx, column=1).value = "CONSOLIDADO MENSUAL"
-                emp_ws.cell(row=row_idx, column=1).font = Font(bold=True)
-                emp_ws.merge_cells(f'A{row_idx}:C{row_idx}')
-                
-                row_idx += 1
-                emp_ws.cell(row=row_idx, column=1).value = "Año"
-                emp_ws.cell(row=row_idx, column=2).value = "Mes"
-                emp_ws.cell(row=row_idx, column=3).value = "Valor Total"
-                
-                # Estilo encabezados
-                for col in range(1, 4):
-                    cell = emp_ws.cell(row=row_idx, column=col)
-                    cell.font = Font(bold=True)
-                    cell.fill = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
-                    cell.alignment = Alignment(horizontal='center')
-                
-                # Calcular consolidado mensual
-                monthly_data = {}
-                for vale in vales_empleado:
-                    if vale["fecha"] is not None and isinstance(vale["fecha"], datetime.datetime):
-                        try:
-                            year = vale["fecha"].year
-                            month = vale["fecha"].month
-                            month_key = f"{year}-{month:02d}"
-                        except Exception as e:
-                            print(f"Error al procesar fecha para consolidado mensual: {str(e)}")
-                            continue  # Salta este vale
-                        
-                        if month_key not in monthly_data:
-                            monthly_data[month_key] = {
-                                "year": year,
-                                "month": month,
-                                "total": 0
-                            }
-                        
-                        # Convertir valor a número antes de sumar
-                        if vale["valor"] is not None:
-                            try:
-                                # Si es string, convertir a número
-                                if isinstance(vale["valor"], str):
-                                    valor_numerico = ''.join(c for c in vale["valor"] if c.isdigit() or c == '.')
-                                    if valor_numerico:
-                                        if '.' in valor_numerico:
-                                            monthly_data[month_key]["total"] += float(valor_numerico)
-                                        else:
-                                            monthly_data[month_key]["total"] += int(valor_numerico)
-                                else:
-                                    # Si ya es número, sumar directamente
-                                    monthly_data[month_key]["total"] += float(vale["valor"])
-                            except (ValueError, TypeError):
-                                print(f"Error al convertir valor '{vale['valor']}' para suma mensual")
-                
-                # Nombres de meses
-                month_names = [
-                    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-                    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-                ]
-                
-                # Llenar datos mensuales
-                row_idx += 1
-                for month_key, data in sorted(monthly_data.items()):
-                    emp_ws.cell(row=row_idx, column=1).value = data["year"]
-                    emp_ws.cell(row=row_idx, column=2).value = month_names[data["month"] - 1]
-                    
-                    valor_cell = emp_ws.cell(row=row_idx, column=3)
-                    valor_cell.value = data["total"]
-                    valor_cell.number_format = '#,##0'
-                    
-                    row_idx += 1
-                
-                # Espacio entre tablas
-                row_idx += 2
-                
-                # Tabla Anual
-                emp_ws.cell(row=row_idx, column=1).value = "CONSOLIDADO ANUAL"
-                emp_ws.cell(row=row_idx, column=1).font = Font(bold=True)
-                emp_ws.merge_cells(f'A{row_idx}:B{row_idx}')
-                
-                row_idx += 1
-                emp_ws.cell(row=row_idx, column=1).value = "Año"
-                emp_ws.cell(row=row_idx, column=2).value = "Valor Total"
-                
-                # Estilo encabezados
-                for col in range(1, 3):
-                    cell = emp_ws.cell(row=row_idx, column=col)
-                    cell.font = Font(bold=True)
-                    cell.fill = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
-                    cell.alignment = Alignment(horizontal='center')
-                
-                # Calcular consolidado anual
-                yearly_data = {}
-                for vale in vales_empleado:
-                    if vale["fecha"] is not None and isinstance(vale["fecha"], datetime.datetime):
-                        try:
-                            year = vale["fecha"].year
-                        except Exception as e:
-                            print(f"Error al procesar fecha para consolidado anual: {str(e)}")
-                            continue  # Salta este vale
-                        
-                        if year not in yearly_data:
-                            yearly_data[year] = 0
-                        
-                        # Convertir valor a número antes de sumar
-                        if vale["valor"] is not None:
-                            try:
-                                # Si es string, convertir a número
-                                if isinstance(vale["valor"], str):
-                                    valor_numerico = ''.join(c for c in vale["valor"] if c.isdigit() or c == '.')
-                                    if valor_numerico:
-                                        if '.' in valor_numerico:
-                                            yearly_data[year] += float(valor_numerico)
-                                        else:
-                                            yearly_data[year] += int(valor_numerico)
-                                else:
-                                    # Si ya es número, sumar directamente
-                                    yearly_data[year] += float(vale["valor"])
-                            except (ValueError, TypeError):
-                                print(f"Error al convertir valor '{vale['valor']}' para suma anual")
-                
-                # Llenar datos anuales
-                row_idx += 1
-                for year, total in sorted(yearly_data.items()):
-                    emp_ws.cell(row=row_idx, column=1).value = year
-                    
-                    valor_cell = emp_ws.cell(row=row_idx, column=2)
-                    valor_cell.value = total
-                    valor_cell.number_format = '#,##0'
-                    
-                    row_idx += 1
-            
-            # Guardar el archivo Excel
-            wb.save(self.excel_path)
-            
-            QMessageBox.information(self, "Éxito", "Se han actualizado los reportes de todos los empleados correctamente.")
-            print("Reportes de empleados actualizados con éxito.")
-            
+
+            # Procesar datos de vales
+            report_data = {}
+            for emp_id in empleados:
+                report_data[emp_id] = {
+                    "Nombre": empleados[emp_id]["Nombre"],
+                    "Total_Vales": 0,
+                    "Total_Valor": 0.0,
+                    "Trabajos": {
+                        'Corte': 0, 'Empaque': 0, 'Guarnecedor': 0,
+                        'Montador': 0, 'Plantillas': 0, 'Soldador': 0
+                    }
+                }
+
+            # Mapa de códigos a tipos de trabajo
+            work_type_abbreviations = {
+                'C': 'Corte', 'E': 'Empaque', 'G': 'Guarnecedor',
+                'M': 'Montador', 'P': 'Plantillas', 'S': 'Soldador'
+            }
+
+            # Analizar vales
+            for row in ws_vales.iter_rows(min_row=2, values_only=True):
+                if len(row) >= 10 and row[1] in empleados:  # row[1] es EmpleadoID
+                    emp_id = row[1]
+                    valor = float(row[8]) if row[8] else 0.0  # Suma_Valores_Trabajos
+                    codigo = row[9]  # Codigo_Serial_Trabajo_Asociado
+                    work_type = None
+                    for abbr, full_name in work_type_abbreviations.items():
+                        if codigo and abbr in codigo:
+                            work_type = full_name
+                            break
+                    if work_type:
+                        report_data[emp_id]["Total_Vales"] += 1
+                        report_data[emp_id]["Total_Valor"] += valor
+                        report_data[emp_id]["Trabajos"][work_type] += 1
+
+            # Actualizar la tabla de previsualización
+            if hasattr(self.ui, 'tableViewVale') and hasattr(self, 'table_model'):
+                self.table_model.clear()
+                self.table_model.setHorizontalHeaderLabels([
+                    "EmpleadoID", "Nombre", "Total Vales", "Total Valor",
+                    "Corte", "Empaque", "Guarnecedor", "Montador", "Plantillas", "Soldador"
+                ])
+                for emp_id, data in report_data.items():
+                    row_data = [
+                        emp_id,
+                        data["Nombre"],
+                        data["Total_Vales"],
+                        round(data["Total_Valor"], 2),
+                        data["Trabajos"]["Corte"],
+                        data["Trabajos"]["Empaque"],
+                        data["Trabajos"]["Guarnecedor"],
+                        data["Trabajos"]["Montador"],
+                        data["Trabajos"]["Plantillas"],
+                        data["Trabajos"]["Soldador"]
+                    ]
+                    items = [QtGui.QStandardItem(str(value)) for value in row_data]
+                    self.table_model.appendRow(items)
+                self.ui.tableViewVale.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+                print("Reporte de empleados generado y mostrado en 'tableViewVale'.")
+            else:
+                print("Advertencia: No se pudo actualizar la tabla 'tableViewVale' porque no existe o no tiene modelo.")
+                QMessageBox.critical(self, "Error", "No se pudo mostrar el reporte porque la tabla de previsualización no está configurada.")
+
+            QMessageBox.information(self, "Reporte Generado", "El reporte de empleados ha sido generado y mostrado en la tabla.")
+
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Error al actualizar reportes: {str(e)}")
-            print(f"Error al actualizar reportes: {str(e)}")
-
-
+            print(f"Error al generar el reporte de empleados: {e}")
+            traceback.print_exc()
+            QMessageBox.critical(self, "Error", f"No se pudo generar el reporte: {e}")
     def setup_update_button(self):
-        """
-        Agrega un botón ActualizarDB a la interfaz para actualizar los reportes de empleados
-        """
-        self.ui.btnActualizarDB.clicked.connect(self.update_employee_reports)
+        """Conecta el botón ActualizarDB para generar reportes de empleados."""
+        if hasattr(self.ui, 'btnActualizarDB'):
+            try:
+                self.ui.btnActualizarDB.clicked.disconnect()
+            except RuntimeError:
+                pass
+            self.ui.btnActualizarDB.clicked.connect(self.update_employee_reports)
+            self.ui.btnActualizarDB.setEnabled(True)
+            print("Botón 'btnActualizarDB' conectado correctamente.")
+        else:
+            print("ERROR: El QPushButton 'btnActualizarDB' no se encontró en la UI.")
 
     def on_code_type_changed(self, checked):
         """Handle change in code type selection"""
@@ -1022,66 +755,66 @@ class MainWindow(QMainWindow):
         hash_object = hashlib.sha1(code.encode())
         short_hash = hash_object.hexdigest()[:length]
         return short_hash.upper()
-        
-    def generate_serial_code(self):
-        """Generate a unique serial code based on form fields"""
-        # Get field values
-        tipo_trabajo = self.ui.CampoTipoTrabajo.text().strip() if hasattr(self.ui, 'CampoTipoTrabajo') else ""
-        referencia = self.ui.CampoReferenciaTrabajo.text().strip() if hasattr(self.ui, 'CampoReferenciaTrabajo') else ""
-        num_ticket = self.ui.CampoNumeroTicket.text().strip() if hasattr(self.ui, 'CampoNumeroTicket') else ""
-        talla = self.ui.CampoTalla.text().strip() if hasattr(self.ui, 'CampoTalla') else ""
-        color = self.ui.CampoColor.text().strip() if hasattr(self.ui, 'CampoColor') else ""
-        
-        # Generate a UUID and take first 6 characters
-        unique_id = str(uuid.uuid4())[:6]
-        
-        # Create the compact serial code
-        serial_code = f"{tipo_trabajo[:1]}{referencia[:2]}{num_ticket[:3]}{talla[:1]}{color[:1]}{unique_id}"
+        #TODOok
+
+    def generate_serial_code(self, ticket_number, referencia, color, tallas_cantidades, work_type_abbr):
+        """
+        Genera un código serial único para un tipo de trabajo específico.
+        Formato: {ticket_number[:3]}-{referencia[:2]}-{work_type_abbr}-{talla_char}-{unique_id[:6]}
+        """
+        talla_char = 'X'
+        for i in range(33, 49):
+            if str(i) in tallas_cantidades:
+                talla_char = str(i)[0]
+                break
+
+        unique_id_segment = str(uuid.uuid4())[:6]
+        serial_code = (
+            f"{ticket_number[:3]}-"
+            f"{referencia[:2]}-"
+            f"{work_type_abbr}-"
+            f"{talla_char}-"
+            f"{unique_id_segment}"
+        )
         return serial_code.upper()
+
     
 
-
+#TODOok
     def generate_barcode(self, serial_code):
+        """
+        Genera una imagen de código de barras Code128 para el serial_code dado.
+        """
         try:
-            barcode_class = barcode.get_barcode_class('code128')
+            barcode_class = get_barcode_class('code128')
 
             class CustomImageWriter(ImageWriter):
                 def __init__(self):
                     super().__init__()
-                    # Ruta base para recursos (fuente)
                     if getattr(sys, 'frozen', False):
                         base_path = sys._MEIPASS
                     else:
                         base_path = os.path.abspath(".")
-
-                    # Lista de posibles ubicaciones de la fuente
                     font_paths = [
                         os.path.join(base_path, "fonts", "segoeui.ttf"),
                         os.path.join(base_path, "segoeui.ttf")
                     ]
                     self.font_path = next((p for p in font_paths if os.path.exists(p)), None)
                     if not self.font_path:
-                        print("ADVERTENCIA: No se encontró la fuente, usando valores por defecto")
+                        print("ADVERTENCIA: No se encontró la fuente 'segoeui.ttf'.")
 
                 def _paint_text(self, xpos, ypos):
-                    """
-                    Invocado por python-barcode como paint_text(xpos, ypos).
-                    El texto a pintar está en self.text.
-                    """
-                    text = self.text  # el código (string) a pintar
-                    # Intentar usar la fuente personalizada
+                    text_to_paint = self.text
                     if self.font_path:
                         try:
                             size = int(getattr(self, "font_size", 10))
                             font = ImageFont.truetype(self.font_path, size)
-                            self._draw.text((xpos, ypos), text, fill=self.foreground, font=font)
+                            self._draw.text((xpos, ypos), text_to_paint, fill=self.foreground, font=font)
                             return
                         except Exception as e:
-                            print(f"Error al usar fuente personalizada: {e}")
-                    # Fallback al método base (sin truetype)
-                    self._draw.text((xpos, ypos), text, fill=self.foreground)
+                            print(f"Error al usar fuente personalizada '{self.font_path}': {e}")
+                    self._draw.text((xpos, ypos), text_to_paint, fill=self.foreground)
 
-            # Instanciar writer y aplicar opciones
             writer = CustomImageWriter()
             options = {
                 'module_height': 8.0,
@@ -1090,205 +823,86 @@ class MainWindow(QMainWindow):
                 'font_size': 7,
                 'text_distance': 1.0,
             }
-            for k, v in options.items():
-                if hasattr(writer, k):
-                    setattr(writer, k, v)
+            for opt_key, opt_value in options.items():
+                if hasattr(writer, opt_key):
+                    setattr(writer, opt_key, opt_value)
 
-            # Determinar directorio de salida
             if getattr(sys, 'frozen', False):
                 application_path = os.path.dirname(sys.executable)
             else:
                 application_path = os.path.dirname(os.path.abspath(__file__))
+
             codes_dir = os.path.join(application_path, "codes")
             os.makedirs(codes_dir, exist_ok=True)
-
-            # Generar y guardar
-            barcode_path = os.path.join(codes_dir, f"barcode_{serial_code}")
-            instance = barcode_class(serial_code, writer=writer)
-            filename = instance.save(barcode_path)
-            return filename
+            barcode_file_path_no_ext = os.path.join(codes_dir, f"barcode_{serial_code}")
+            barcode_instance = barcode_class(serial_code, writer=writer)
+            full_filename_written = barcode_instance.save(barcode_file_path_no_ext)
+            return full_filename_written
 
         except Exception as e:
-            print(f"Error al generar código de barras: {e}")
+            print(f"Error crítico al generar código de barras: {e}")
             traceback.print_exc()
-            QMessageBox.critical(self, "Error", f"Error al generar el código de barras:\n{e}")
+            QMessageBox.critical(self, "Error de Código de Barras",
+                                 f"No se pudo generar el código de barras para '{serial_code}':\n{e}")
             return None
 
-    def setup_code_generator(self):
-        """
-        Setup the barcode and QR code generator functionality
-        """
-        # Define excel path and create barcode directory if needed
-        self.excel_path = "trabajos_database.xlsx"
-        self.vales_sheet_name = "Vales"  # Sheet name for vales data
-        
-        if not os.path.exists("codes"):
-            os.makedirs("codes")
-        
-        # Create Excel file if it doesn't exist
-        if not os.path.exists(self.excel_path):
-            wb = Workbook()
-            ws = wb.active
-            ws.title = "Trabajos"
-            ws.append(["Código Serial", "Tipo Trabajo", "Referencia", "Número Ticket",
-                     "Talla", "Color", "Valor", "Total Producido", "Tipo Código", "Ruta Imagen"])
-            
-            # Create Vales sheet
-            vales_ws = wb.create_sheet(title=self.vales_sheet_name)
-            vales_ws.append(["ID", "EmpleadoID", "Fecha", "Tipo Trabajo", "Número Ticket",
-                          "Referencia", "Talla", "Color", "Valor", "Total Producido", "Código Serial"])
-            
-            wb.save(self.excel_path)
-        else:
-            # Check if Vales sheet exists, if not create it
-            wb = load_workbook(self.excel_path)
-            if self.vales_sheet_name not in wb.sheetnames:
-                vales_ws = wb.create_sheet(title=self.vales_sheet_name)
-                vales_ws.append(["ID", "EmpleadoID", "Fecha", "Tipo Trabajo", "Número Ticket",
-                              "Referencia", "Talla", "Color", "Valor", "Total Producido", "Código Serial"])
-                wb.save(self.excel_path)
-        
-        # Connect the save button
-        self.ui.pushButtonGuardar.clicked.connect(self.on_save_button_clicked)
-        
-        # Add code type selector (radio buttons)
-        self.setup_code_type_selector()
-        
-        # Ensure the QGraphicsView has a scene
-        if not hasattr(self.ui, 'PreviwImage'):
-            print("Warning: PreviwImage not found in UI")
-        elif self.ui.PreviwImage.scene() is None:
-            self.ui.PreviwImage.setScene(QtWidgets.QGraphicsScene())
-    
+    #TODOok
     def setup_autocompletado_fields(self):
         """
         Configura el autocompletado para los campos QLineEdit relevantes.
         """
-        # Define los campos QLineEdit de tu UI y las columnas de Excel correspondientes
-        # El formato es: 'identificador_unico': {'line_edit': self.ui.TuLineEdit, 'columna': 'NombreDeColumnaEnExcel'}
-        
+        # Define los campos QLineEdit de la UI y las columnas de Excel correspondientes
+        # Formato: 'identificador_unico': {'line_edit': self.ui.NombreLineEdit, 'columna': 'NombreColumnaEnExcel'}
         campos_a_configurar = {}
 
-        # Asegúrate de que estos QLineEdit existen en tu self.ui y las columnas en tu Excel
-        if hasattr(self.ui, 'CampoTipoTrabajo'):
-            campos_a_configurar['tipo_trabajo'] = {
-                'line_edit': self.ui.CampoTipoTrabajo, 
-                'columna': 'Tipo Trabajo'
-            }
+        # Campos de texto obligatorios según on_save_button_clicked
         if hasattr(self.ui, 'CampoReferenciaTrabajo'):
-            campos_a_configurar['referencia_trabajo'] = {
-                'line_edit': self.ui.CampoReferenciaTrabajo, 
+            campos_a_configurar['referencia'] = {
+                'line_edit': self.ui.CampoReferenciaTrabajo,
                 'columna': 'Referencia'
             }
         if hasattr(self.ui, 'CampoNumeroTicket'):
             campos_a_configurar['numero_ticket'] = {
-                'line_edit': self.ui.CampoNumeroTicket, 
+                'line_edit': self.ui.CampoNumeroTicket,
                 'columna': 'Número Ticket'
-            }
-        if hasattr(self.ui, 'CampoTalla'):
-            campos_a_configurar['talla'] = {
-                'line_edit': self.ui.CampoTalla, 
-                'columna': 'Talla'
             }
         if hasattr(self.ui, 'CampoColor'):
             campos_a_configurar['color'] = {
-                'line_edit': self.ui.CampoColor, 
+                'line_edit': self.ui.CampoColor,
                 'columna': 'Color'
             }
-        # Añade más campos si es necesario, por ejemplo:
-        # if hasattr(self.ui, 'CampoValor'):
-        #     campos_a_configurar['valor'] = {
-        #         'line_edit': self.ui.CampoValor,
-        #         'columna': 'Valor' # Asegúrate que esta columna exista y tenga sentido para autocompletar
-        #     }
+
+        # Opcional: Configurar autocompletado para tallas individuales
+        # Asumimos que las tallas están en columnas separadas (Cant_T33 a Cant_T48) en el Excel
+        for i in range(33, 49):  # Tallas de 33 a 48
+            field_name = f'CampoTalla_{i}'
+            if hasattr(self.ui, field_name):
+                campos_a_configurar[f'talla_{i}'] = {
+                    'line_edit': getattr(self.ui, field_name),
+                    'columna': f'Cant_T{i}'  # Nombre de columna en el Excel (Cant_T33, Cant_T34, etc.)
+                }
+
+        # Opcional: Configurar autocompletado para valores (poco común para campos numéricos)
+        # Descomenta si necesitas autocompletado para estos campos
+        
+        campos_valor_trabajo = [
+            ('CampoValorCorte', 'Valor Corte'), ('CampoValorEmpaque', 'Valor Empaque'),
+            ('CampoValorGuarnecedor', 'Valor Guarnecedor'), ('CampoValorMontador', 'Valor Montador'),
+            ('CampoValorPlantillas', 'Valor Plantillas'), ('CampoValorSoldador', 'Valor Soldador')
+        ]
+        for field_attr_name, columna in campos_valor_trabajo:
+            if hasattr(self.ui, field_attr_name):
+                campos_a_configurar[field_attr_name.lower()] = {
+                    'line_edit': getattr(self.ui, field_attr_name),
+                    'columna': columna
+                }
+        
 
         if campos_a_configurar:
             self.autocompletado_manager.configurar_multiples_campos(campos_a_configurar)
             print("Autocompletado configurado para los campos.")
         else:
             print("No se encontraron campos para configurar el autocompletado.")
-
-    def on_save_button_clicked(self):
-        """Handler for save button click"""
-        # Define required fields and their UI elements
-        required_fields = []
-        
-        # Only add fields that exist in the UI
-        if hasattr(self.ui, 'CampoTipoTrabajo'):
-            required_fields.append((self.ui.CampoTipoTrabajo, "Tipo de Trabajo"))
-        if hasattr(self.ui, 'CampoReferenciaTrabajo'):
-            required_fields.append((self.ui.CampoReferenciaTrabajo, "Referencia"))
-        if hasattr(self.ui, 'CampoNumeroTicket'):
-            required_fields.append((self.ui.CampoNumeroTicket, "Número de Ticket"))
-        if hasattr(self.ui, 'CampoTalla'):
-            required_fields.append((self.ui.CampoTalla, "Talla"))
-        if hasattr(self.ui, 'CampoColor'):
-            required_fields.append((self.ui.CampoColor, "Color"))
-        if hasattr(self.ui, 'CampoValor'):
-            required_fields.append((self.ui.CampoValor, "Valor"))
-        if hasattr(self.ui, 'CampoTotalProducido'):
-            required_fields.append((self.ui.CampoTotalProducido, "Total Producido"))
-        
-        # Validate required fields
-        for field, name in required_fields:
-            if not field.text().strip():
-                QMessageBox.warning(self, "Campos Incompletos", f"El campo {name} es obligatorio.")
-                field.setFocus()
-                return
-        
-        # Get values from UI
-        tipo_trabajo = getattr(self.ui, 'CampoTipoTrabajo').text() if hasattr(self.ui, 'CampoTipoTrabajo') else ""
-        referencia = getattr(self.ui, 'CampoReferenciaTrabajo').text() if hasattr(self.ui, 'CampoReferenciaTrabajo') else ""
-        ticket_number = getattr(self.ui, 'CampoNumeroTicket').text() if hasattr(self.ui, 'CampoNumeroTicket') else ""
-        talla = getattr(self.ui, 'CampoTalla').text() if hasattr(self.ui, 'CampoTalla') else ""
-        color = getattr(self.ui, 'CampoColor').text() if hasattr(self.ui, 'CampoColor') else ""
-        valor = getattr(self.ui, 'CampoValor').text() if hasattr(self.ui, 'CampoValor') else ""
-        total_producido = getattr(self.ui, 'CampoTotalProducido').text() if hasattr(self.ui, 'CampoTotalProducido') else "0"
-        
-        # Generate unique serial code
-        serial_code = f"{ticket_number}-{referencia}-{talla}"
-        
-        # Generate the selected code type
-        if self.current_code_type == "barcode":
-            code_path = self.generate_barcode(serial_code)
-        else:
-            code_path = self.generate_qr_code(serial_code)
-        
-        if not code_path:
-            QMessageBox.critical(self, "Error", "Error al generar el código.")
-            return
-        
-        # Display the code
-        if not self.display_code_image(code_path):
-            return
-        
-        # Save data to Excel
-        if self.save_to_excel(serial_code, code_path):
-            # Create a dictionary of tallas and cantidades (for the PDF)
-            tallas_cantidades = {talla: int(total_producido) if total_producido.isdigit() else 0}
-            
-            # Generate PDF with QR code
-            pdf_path = self.generate_vale_pdf(
-                ticket_number, tipo_trabajo, referencia,
-                tallas_cantidades, color, total_producido, serial_code
-            )
-            
-            # Show success message with both paths
-            QMessageBox.information(
-                self,
-                "Operación Exitosa",
-                f"Código generado: {serial_code}\nTipo: {self.current_code_type.upper()}\n"
-                f"Los datos se han guardado correctamente.\n"
-                f"PDF generado en: {pdf_path}"
-            )
-            
-            # Clear fields
-            for field, _ in required_fields:
-                field.clear()
-            
-            # Focus first field
-            if required_fields:
-                required_fields[0][0].setFocus()
     
     def generate_qr_code(self, data):
         """
@@ -1351,47 +965,56 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error al mostrar la imagen: {str(e)}")
             return False
-    
-    def save_to_excel(self, serial_code, code_path):
+    #TODOok
+
+    def save_to_excel(self, serial_codes, code_path, ticket_number, referencia, color, tallas_cantidades, total_producido_calculado, valores_trabajo):
         """
-        Save data to Excel file
-        
-        Args:
-            serial_code: Serial code for the generated barcode/QR
-            code_path: Path to the generated code image
-            
-        Returns:
-            bool: True if successful, False otherwise
+        Guarda los datos en la hoja 'Trabajos' del archivo Excel.
         """
         try:
-            # Get values from UI
-            tipo_trabajo = getattr(self.ui, 'CampoTipoTrabajo').text() if hasattr(self.ui, 'CampoTipoTrabajo') else ""
-            referencia = getattr(self.ui, 'CampoReferenciaTrabajo').text() if hasattr(self.ui, 'CampoReferenciaTrabajo') else ""
-            ticket_number = getattr(self.ui, 'CampoNumeroTicket').text() if hasattr(self.ui, 'CampoNumeroTicket') else ""
-            talla = getattr(self.ui, 'CampoTalla').text() if hasattr(self.ui, 'CampoTalla') else ""
-            color = getattr(self.ui, 'CampoColor').text() if hasattr(self.ui, 'CampoColor') else ""
-            valor = getattr(self.ui, 'CampoValor').text() if hasattr(self.ui, 'CampoValor') else ""
-            total_producido = getattr(self.ui, 'CampoTotalProducido').text() if hasattr(self.ui, 'CampoTotalProducido') else "0"
-            
-            # Load workbook
             wb = load_workbook(self.excel_path)
-            ws = wb["Trabajos"]
-            
-            # Add new row
-            ws.append([
-                serial_code, tipo_trabajo, referencia, ticket_number,
-                talla, color, valor, total_producido, 
-                self.current_code_type.upper(), code_path
+            ws_trabajos = wb["Trabajos"]
+
+            # Crear una nueva fila con los datos
+            row_data = [
+                list(serial_codes.values())[0] if serial_codes else "",  # Código Serial (primer código generado)
+                ticket_number,
+                referencia,
+                color
+            ]
+            # Añadir cantidades por talla (33 a 48)
+            for i in range(33, 49):
+                row_data.append(tallas_cantidades.get(str(i), 0))
+            # Añadir total producido y valores por tipo de trabajo
+            row_data.extend([
+                total_producido_calculado,
+                valores_trabajo.get("Corte", 0),
+                valores_trabajo.get("Empaque", 0),
+                valores_trabajo.get("Guarnecedor", 0),
+                valores_trabajo.get("Montador", 0),
+                valores_trabajo.get("Plantillas", 0),
+                valores_trabajo.get("Soldador", 0),
+                self.current_code_type.upper(),  # Tipo Código
+                code_path  # Ruta Imagen
             ])
-            
-            # Save workbook
+            # Añadir códigos seriales por tipo de trabajo
+            work_type_abbreviations = {
+                'Corte': 'C', 'Empaque': 'E', 'Guarnecedor': 'G',
+                'Montador': 'M', 'Plantillas': 'P', 'Soldador': 'S'
+            }
+            for work_type in work_type_abbreviations.keys():
+                row_data.append(serial_codes.get(work_type, ""))
+
+            # Añadir la fila a la hoja "Trabajos"
+            ws_trabajos.append(row_data)
             wb.save(self.excel_path)
             return True
         except Exception as e:
-            print(f"Error saving to Excel: {e}")
-            QMessageBox.critical(self, "Error", f"Error al guardar los datos: {e}")
+            print(f"Error al guardar en Excel: {e}")
             return False
-    
+        
+    #TODOok
+
     def find_code_data(self, serial_code):
         """Find data related to a specific serial code in the Excel file"""
         try:
@@ -1405,88 +1028,141 @@ class MainWindow(QMainWindow):
                     # Return all data for this row
                     return {
                         "serial_code": row[0].value,
-                        "tipo_trabajo": row[1].value,
+                        "num_ticket": row[1].value,
                         "referencia": row[2].value,
-                        "num_ticket": row[3].value,
-                        "talla": row[4].value,
-                        "color": row[5].value,
-                        "valor": row[6].value,
-                        "total_producido": row[7].value,
-                        "tipo_codigo": row[8].value,
-                        "ruta_imagen": row[9].value
+                        "color": row[3].value,
+                        "total_producido": row[16].value,  # Índice 16 para Total Producido
+                        "valor_corte": row[17].value,
+                        "valor_empaque": row[18].value,
+                        "valor_guarnecedor": row[19].value,
+                        "valor_montador": row[20].value,
+                        "valor_plantillas": row[21].value,
+                        "valor_soldador": row[22].value
                     }
             
             return None
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Error al buscar datos: {str(e)}")
             return None
-    
+        #TODOok
+
     def on_code_scanned(self):
-        """Handle barcode/QR code scanning"""
-        # Get scanned code
+        """Maneja el evento cuando se escanea o ingresa un código."""
+        if not hasattr(self.ui, 'codeReaderInput'):
+            print("ERROR: codeReaderInput no encontrado en UI")
+            return
+
         scanned_code = self.ui.codeReaderInput.text().strip()
         if not scanned_code:
+            QMessageBox.warning(self, "Entrada Vacía", "Por favor, escanee o ingrese un código válido.")
             return
-        
-        # Find data for this code
-        data = self.find_code_data(scanned_code)
-        if not data:
-            QMessageBox.warning(self, "Código No Encontrado", 
-                               f"No se encontraron datos para el código: {scanned_code}")
+
+        # Cargar el archivo Excel
+        try:
+            wb = load_workbook(self.excel_path)
+            ws_trabajos = wb["Trabajos"]
+            ws_vales = wb[self.vales_sheet_name]
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"No se pudo abrir el archivo Excel: {e}")
+            return
+
+        # Buscar el código en las columnas de códigos seriales por tipo de trabajo
+        work_type_abbreviations = {
+            'Corte': 'C', 'Empaque': 'E', 'Guarnecedor': 'G',
+            'Montador': 'M', 'Plantillas': 'P', 'Soldador': 'S'
+        }
+        work_type_columns = {work_type: f"Código_{work_type}" for work_type in work_type_abbreviations.keys()}
+        found_row = None
+        work_type_found = None
+
+        # Obtener los índices de las columnas
+        headers = [cell.value for cell in ws_trabajos[1]]
+        for row in ws_trabajos.iter_rows(min_row=2, values_only=True):
+            for work_type, column_name in work_type_columns.items():
+                col_idx = headers.index(column_name) if column_name in headers else -1
+                if col_idx != -1 and row[col_idx] == scanned_code:
+                    found_row = row
+                    work_type_found = work_type
+                    break
+            if found_row:
+                break
+
+        if not found_row:
+            QMessageBox.warning(self, "Código No Encontrado", f"El código '{scanned_code}' no se encontró en la hoja 'Trabajos'.")
             self.ui.codeReaderInput.clear()
             return
-        
-        # Generate a unique ID for this vale
-        vale_id = f"V-{datetime.datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:6]}"
-        
-        # Add data to table view
-        self.add_to_table_view(vale_id, data)
-        
-        # Clear input field
-        self.ui.codeReaderInput.clear()
-        
-        # Display code image if available
-        if data["ruta_imagen"] and os.path.exists(data["ruta_imagen"]):
-            self.display_code_image(data["ruta_imagen"])
-            
-        # Show success message
-        QMessageBox.information(self, "Código Encontrado", 
-                               f"Código escaneado: {scanned_code}\nTipo de trabajo: {data['tipo_trabajo']}\nVale ID: {vale_id}")
-    
-    def add_to_table_view(self, vale_id, data):
-        """Add scanned code data to the TableView"""
-        # Get employee info
-        employee_text = self.ui.EmpleadosBox.currentText()
-        employee_id = self.ui.EmpleadosBox.currentData()
-        
-        # Create row items
-        items = [
-            QtGui.QStandardItem(vale_id),
-            QtGui.QStandardItem(data["serial_code"]),
-            QtGui.QStandardItem(str(data["tipo_trabajo"])),
-            QtGui.QStandardItem(str(data["referencia"])),
-            QtGui.QStandardItem(str(data["num_ticket"])),
-            QtGui.QStandardItem(str(data["talla"])),
-            QtGui.QStandardItem(str(data["color"])),
-            QtGui.QStandardItem(str(data["valor"])),
-            QtGui.QStandardItem(str(data["total_producido"])),
-            QtGui.QStandardItem(employee_text)
+
+        # Obtener datos de la fila encontrada
+        try:
+            ticket_number = found_row[headers.index("Número Ticket")]
+            referencia = found_row[headers.index("Referencia")]
+            color = found_row[headers.index("Color")]
+            total_producido = found_row[headers.index("Total Producido")]
+            valor_trabajo = found_row[headers.index(f"Valor {work_type_found}")]
+            tallas_cantidades = {}
+            for i in range(33, 49):
+                cantidad = found_row[headers.index(f"Cant_T{i}")]
+                if cantidad and cantidad > 0:
+                    tallas_cantidades[str(i)] = cantidad
+            resumen_tallas = "; ".join([f"Talla {k}: {v}" for k, v in tallas_cantidades.items()])
+        except ValueError as e:
+            QMessageBox.critical(self, "Error", f"Error al procesar los datos de la hoja 'Trabajos': {e}")
+            return
+
+        # Obtener el empleado seleccionado
+        if not hasattr(self.ui, 'EmpleadosBox'):
+            QMessageBox.critical(self, "Error", "No se encontró el ComboBox de empleados.")
+            return
+        empleado_id = self.ui.EmpleadosBox.currentData()
+        if not empleado_id:
+            QMessageBox.warning(self, "Empleado No Seleccionado", "Por favor, seleccione un empleado.")
+            return
+
+        # Generar un ID único para el vale
+        id_vale = f"V{int(time.time())}"  # ID basado en timestamp
+        fecha_hora = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        suma_valores = valor_trabajo  # Solo el valor del trabajo escaneado
+
+        # Crear la fila para la hoja "Vales"
+        vale_row = [
+            id_vale,
+            empleado_id,
+            fecha_hora,
+            ticket_number,
+            referencia,
+            color,
+            resumen_tallas,
+            total_producido,
+            suma_valores,
+            scanned_code
         ]
-        
-        # Add row to model
-        self.table_model.appendRow(items)
-        
-        # Store data for later registration
-        data["vale_id"] = vale_id
-        data["employee_id"] = employee_id
-        data["employee_text"] = employee_text
-        
-        # Add to pending vales list if not already exists
-        if not hasattr(self, 'pending_vales'):
-            self.pending_vales = []
-        
-        self.pending_vales.append(data)
-    
+
+        # Guardar en la hoja "Vales"
+        try:
+            ws_vales.append(vale_row)
+            wb.save(self.excel_path)
+            QMessageBox.information(self, "Vale Registrado", f"Vale {id_vale} registrado exitosamente para {work_type_found}.")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"No se pudo guardar el vale en Excel: {e}")
+            return
+
+        # Actualizar la tabla visual
+        if hasattr(self.ui, 'tableViewVale'):
+            row_data = [
+                scanned_code, ticket_number, referencia, color, total_producido,
+                found_row[headers.index("Valor Corte")],
+                found_row[headers.index("Valor Empaque")],
+                found_row[headers.index("Valor Guarnecedor")],
+                found_row[headers.index("Valor Montador")],
+                found_row[headers.index("Valor Plantillas")],
+                found_row[headers.index("Valor Soldador")]
+            ]
+            items = [QtGui.QStandardItem(str(value) if value is not None else "") for value in row_data]
+            self.table_model.appendRow(items)
+
+        # Limpiar el campo de entrada
+        self.ui.codeReaderInput.clear()
+    #TODOok
     def register_vale(self):
         """Register the scanned vales to Excel"""
         if not hasattr(self, 'pending_vales') or not self.pending_vales:
@@ -1494,131 +1170,189 @@ class MainWindow(QMainWindow):
             return
         
         try:
-            # Get current date
-            current_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            
-            # Load Excel file
+            current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             wb = load_workbook(self.excel_path)
-            
-            # Get vales sheet or create if not exists
             if self.vales_sheet_name in wb.sheetnames:
                 ws = wb[self.vales_sheet_name]
             else:
                 ws = wb.create_sheet(title=self.vales_sheet_name)
-                ws.append(["ID", "EmpleadoID", "Fecha", "Tipo Trabajo", "Número Ticket",
-                          "Referencia", "Talla", "Color", "Valor", "Total Producido", "Código Serial"])
+                ws.append([
+                    "ID", "EmpleadoID", "Fecha", "Código Serial", "Número Ticket",
+                    "Referencia", "Color", "Total Producido", "Valor Corte",
+                    "Valor Empaque", "Valor Guarnecedor", "Valor Montador",
+                    "Valor Plantillas", "Valor Soldador"
+                ])
             
-            # Add all pending vales
             for vale in self.pending_vales:
                 ws.append([
                     vale["vale_id"],
                     vale["employee_id"],
                     current_date,
-                    vale["tipo_trabajo"],
+                    vale["serial_code"],
                     vale["num_ticket"],
                     vale["referencia"],
-                    vale["talla"],
                     vale["color"],
-                    vale["valor"],
                     vale["total_producido"],
-                    vale["serial_code"]
+                    vale["valor_corte"],
+                    vale["valor_empaque"],
+                    vale["valor_guarnecedor"],
+                    vale["valor_montador"],
+                    vale["valor_plantillas"],
+                    vale["valor_soldador"]
                 ])
             
-            # Save Excel file
             wb.save(self.excel_path)
-            
-            # Clear pending vales and table view
             self.pending_vales = []
-            self.table_model.removeRows(0, self.table_model.rowCount())
+            if self.table_model:
+                self.table_model.removeRows(0, self.table_model.rowCount())
             
-            # Show success message
-            QMessageBox.information(self, "Vales Registrados", 
-                                   f"Se han registrado {len(self.pending_vales)} vales correctamente.")
-            
+            QMessageBox.information(self, "Vales Registrados",
+                                    f"Se han registrado {len(self.pending_vales)} vales correctamente.")
+        
         except Exception as e:
+            print(f"Error al registrar vales: {e}")
             QMessageBox.critical(self, "Error", f"Error al registrar vales: {str(e)}")
-    
+    #TODOok
     def on_save_button_clicked(self):
         """Handler for save button click"""
-        # Define required fields and their UI elements
-        required_fields = []
-        
-        # Only add fields that exist in the UI
-        if hasattr(self.ui, 'CampoTipoTrabajo'):
-            required_fields.append((self.ui.CampoTipoTrabajo, "Tipo de Trabajo"))
+        # --- 1. Definición de Campos y Recolección Inicial ---
+        required_core_fields = []
+        all_fields_to_clear = []
+
+        # Campos básicos obligatorios
         if hasattr(self.ui, 'CampoReferenciaTrabajo'):
-            required_fields.append((self.ui.CampoReferenciaTrabajo, "Referencia"))
+            required_core_fields.append((self.ui.CampoReferenciaTrabajo, "Referencia"))
+            all_fields_to_clear.append(self.ui.CampoReferenciaTrabajo)
         if hasattr(self.ui, 'CampoNumeroTicket'):
-            required_fields.append((self.ui.CampoNumeroTicket, "Número de Ticket"))
-        if hasattr(self.ui, 'CampoTalla'):
-            required_fields.append((self.ui.CampoTalla, "Talla"))
+            required_core_fields.append((self.ui.CampoNumeroTicket, "Número de Ticket"))
+            all_fields_to_clear.append(self.ui.CampoNumeroTicket)
         if hasattr(self.ui, 'CampoColor'):
-            required_fields.append((self.ui.CampoColor, "Color"))
-        if hasattr(self.ui, 'CampoValor'):
-            required_fields.append((self.ui.CampoValor, "Valor"))
-        if hasattr(self.ui, 'CampoTotalProducido'):
-            required_fields.append((self.ui.CampoTotalProducido, "Total Producido"))
-        
-        # Validate required fields
-        for field, name in required_fields:
+            required_core_fields.append((self.ui.CampoColor, "Color"))
+            all_fields_to_clear.append(self.ui.CampoColor)
+
+        # --- 2. Validación de Campos Básicos ---
+        for field, name in required_core_fields:
             if not field.text().strip():
-                QMessageBox.warning(self, "Campos Incompletos", f"El campo {name} es obligatorio.")
+                QMessageBox.warning(self, "Campos Incompletos", f"El campo '{name}' es obligatorio.")
                 field.setFocus()
                 return
+
+        # --- 3. Recolección de Datos Específicos ---
+        referencia = getattr(self.ui, 'CampoReferenciaTrabajo').text().strip() if hasattr(self.ui, 'CampoReferenciaTrabajo') else ""
+        ticket_number = getattr(self.ui, 'CampoNumeroTicket').text().strip() if hasattr(self.ui, 'CampoNumeroTicket') else ""
+        color = getattr(self.ui, 'CampoColor').text().strip() if hasattr(self.ui, 'CampoColor') else ""
+
+        # Recolectar Tallas y Cantidades
+        tallas_cantidades = {}
+        total_producido_calculado = 0
+        has_any_talla = False
+        for i in range(33, 49):
+            field_name = f"CampoTalla_{i}"
+            if hasattr(self.ui, field_name):
+                talla_field = getattr(self.ui, field_name)
+                all_fields_to_clear.append(talla_field)
+                cantidad_text = talla_field.text().strip()
+                if cantidad_text:
+                    if cantidad_text.isdigit() and int(cantidad_text) > 0:
+                        cantidad = int(cantidad_text)
+                        tallas_cantidades[str(i)] = cantidad
+                        total_producido_calculado += cantidad
+                        has_any_talla = True
+                    else:
+                        QMessageBox.warning(self, "Entrada Inválida",
+                                            f"La cantidad para la Talla {i} ('{cantidad_text}') debe ser un número entero positivo.")
+                        talla_field.setFocus()
+                        return
         
-        # Get values from UI
-        tipo_trabajo = getattr(self.ui, 'CampoTipoTrabajo').text() if hasattr(self.ui, 'CampoTipoTrabajo') else ""
-        referencia = getattr(self.ui, 'CampoReferenciaTrabajo').text() if hasattr(self.ui, 'CampoReferenciaTrabajo') else ""
-        ticket_number = getattr(self.ui, 'CampoNumeroTicket').text() if hasattr(self.ui, 'CampoNumeroTicket') else ""
-        talla = getattr(self.ui, 'CampoTalla').text() if hasattr(self.ui, 'CampoTalla') else ""
-        color = getattr(self.ui, 'CampoColor').text() if hasattr(self.ui, 'CampoColor') else ""
-        valor = getattr(self.ui, 'CampoValor').text() if hasattr(self.ui, 'CampoValor') else ""
-        total_producido = getattr(self.ui, 'CampoTotalProducido').text() if hasattr(self.ui, 'CampoTotalProducido') else "0"
-        
-        # Generate unique serial code
-        serial_code = f"{ticket_number}-{referencia}-{talla}"
-        
-        # Generate the selected code type
-        if self.current_code_type == "barcode":
-            code_path = self.generate_barcode(serial_code)
-        else:
-            code_path = self.generate_qr_code(serial_code)
-        
-        if not code_path:
-            QMessageBox.critical(self, "Error", "Error al generar el código no hay code_path.")
+        if not has_any_talla:
+            QMessageBox.warning(self, "Campos Incompletos", "Debe ingresar la cantidad para al menos una talla.")
+            if hasattr(self.ui, "CampoTalla_33"):
+                getattr(self.ui, "CampoTalla_33").setFocus()
             return
-        
-        # Display the code
-        if not self.display_code_image(code_path):
+
+        # Recolectar Valores por Tipo de Trabajo
+        valores_trabajo = {}
+        work_type_abbreviations = {
+            'Corte': 'C', 'Empaque': 'E', 'Guarnecedor': 'G',
+            'Montador': 'M', 'Plantillas': 'P', 'Soldador': 'S'
+        }
+        campos_valor_trabajo_nombres = [
+            ('CampoValorCorte', "Corte"), ('CampoValorEmpaque', "Empaque"),
+            ('CampoValorGuarnecedor', "Guarnecedor"), ('CampoValorMontador', "Montador"),
+            ('CampoValorPlantillas', "Plantillas"), ('CampoValorSoldador', "Soldador")
+        ]
+
+        for field_attr_name, readable_name in campos_valor_trabajo_nombres:
+            if hasattr(self.ui, field_attr_name):
+                valor_field = getattr(self.ui, field_attr_name)
+                all_fields_to_clear.append(valor_field)
+                valor_text = valor_field.text().strip()
+                if valor_text:
+                    try:
+                        valor_float = float(valor_text.replace(',', '.'))
+                        valores_trabajo[readable_name] = valor_float
+                    except ValueError:
+                        QMessageBox.warning(self, "Entrada Inválida",
+                                            f"El valor para '{readable_name}' ('{valor_text}') debe ser un número.")
+                        valor_field.setFocus()
+                        return
+
+        # --- 4. Generación de Códigos Serial y Barcodes ---
+        serial_codes = {}
+        barcode_paths = {}
+        for work_type, abbr in work_type_abbreviations.items():
+            if work_type in valores_trabajo:  # Only generate for work types with values
+                serial_code = self.generate_serial_code(ticket_number, referencia, color, tallas_cantidades, abbr)
+                barcode_path = self.generate_barcode(serial_code)
+                if not barcode_path:
+                    QMessageBox.critical(self, "Error", f"Error al generar el código de barras para {work_type}.")
+                    return
+                serial_codes[work_type] = serial_code
+                barcode_paths[work_type] = barcode_path
+
+        # --- 5. Guardado en Excel (Trabajos) ---
+        first_work_type = next(iter(valores_trabajo), None)
+        if first_work_type:
+            if not self.save_to_excel(
+                serial_codes=serial_codes,
+                code_path=barcode_paths[first_work_type] if first_work_type else "",
+                ticket_number=ticket_number,
+                referencia=referencia,
+                color=color,
+                tallas_cantidades=tallas_cantidades,
+                total_producido_calculado=total_producido_calculado,
+                valores_trabajo=valores_trabajo
+            ):
+                QMessageBox.critical(self, "Error de Guardado", "No se pudieron guardar los datos en Excel (Trabajos).")
+                return
+
+        # --- 6. Generación de PDF ---
+        pdf_path = self.generate_vale_pdf(
+            ticket_number, referencia, tallas_cantidades, color,
+            total_producido_calculado, barcode_paths, valores_trabajo
+        )
+
+        if not pdf_path:
+            QMessageBox.critical(self, "Error", "Datos guardados en Excel, pero hubo un error al generar el PDF.")
             return
+
+        QMessageBox.information(
+            self,
+            "Operación Exitosa",
+            f"Códigos generados: {', '.join(serial_codes.values())}\n"
+            f"Tipo: {self.current_code_type.upper()}\n"
+            f"Total Producido: {total_producido_calculado} unidades.\n"
+            f"Los datos se han guardado correctamente.\n"
+            f"PDF generado en: {pdf_path}"
+        )
+
+        # --- 7. Limpieza de Campos ---
+        for field_widget in all_fields_to_clear:
+            field_widget.clear()
         
-        # Save data to Excel
-        if self.save_to_excel(serial_code, code_path):
-            # Create a dictionary of tallas and cantidades (for the PDF)
-            tallas_cantidades = {talla: int(total_producido) if total_producido.isdigit() else 0}
-            
-            # Generate PDF with QR code
-            pdf_path = self.generate_vale_pdf(
-                ticket_number, tipo_trabajo, referencia,
-                tallas_cantidades, color, total_producido, code_path
-            )
-            
-            # Show success message with both paths
-            QMessageBox.information(
-                self,
-                "Operación Exitosa",
-                f"Código generado: {serial_code}\nTipo: {self.current_code_type.upper()}\n"
-                f"Los datos se han guardado correctamente.\n"
-                f"PDF generado en: {pdf_path}"
-            )
-            
-            # Clear fields
-            for field, _ in required_fields:
-                field.clear()
-            
-            # Focus first field
-            if required_fields:
-                required_fields[0][0].setFocus()
+        if hasattr(self.ui, 'CampoReferenciaTrabajo'):
+            self.ui.CampoReferenciaTrabajo.setFocus()
+
 
     def Button(self):
         """Handler for menu button clicks"""
@@ -1680,127 +1414,151 @@ class MainWindow(QMainWindow):
     def resizeFunction(self):
         """Log window size on resize"""
         print('Height: ' + str(self.height()) + ' | Width: ' + str(self.width()))
+#TODOokk
 
-    def generate_vale_pdf(self, ticket_numbers, tipo_trabajo, referencia, tallas_cantidades, color, total_producido, serial_code_path):
+    def generate_vale_pdf(self, ticket_number, referencia, tallas_cantidades, color,
+                        total_producido_calculado, barcode_paths, valores_trabajo):
         """
-        Generate a PDF work voucher with multiple tickets on a single page.
+        Genera un vale de trabajo en PDF con 6 secciones (una por tipo de trabajo)
+        en una sola página, detallando las cantidades por talla y el código de barras para cada sección.
+        The header uses the first work type's barcode path, accessed via barcode_paths.get(first_work_type, "").
         """
-        # Create PDF filename and path
-        pdf_filename = f"vale_{tipo_trabajo}_{'_'.join(map(str, ticket_numbers))}.pdf" # Asegurarse que ticket_numbers sean strings para el join si son ints
+        safe_referencia = referencia.replace('/', '-').replace('\\', '-')
+        pdf_filename = f"vale_{safe_referencia}_{ticket_number}.pdf"
         pdf_path = os.path.join("codes", pdf_filename)
 
-        # Create the PDF document
         doc = SimpleDocTemplate(pdf_path, pagesize=letter,
-                                leftMargin=30, rightMargin=30,
-                                topMargin=30, bottomMargin=30)
+                                leftMargin=0.4*inch, rightMargin=0.4*inch,
+                                topMargin=0.4*inch, bottomMargin=0.4*inch)
         styles = getSampleStyleSheet()
         elements = []
 
-        # Define sizes (columns: 33 to 48 inclusive)
-        sizes = list(range(33, 49))
-        size_row = [str(size) for size in sizes]
+        # --- 1. Encabezado General del Ticket ---
+        first_work_type = next(iter(barcode_paths), None)
+        header_barcode_path = barcode_paths.get(first_work_type, "") if first_work_type else ""
+        try:
+            barcode_img_obj = Image(header_barcode_path, width=1.6*inch, height=0.6*inch) if header_barcode_path else Paragraph("(Sin Código)", styles['Normal'])
+            barcode_img_obj.hAlign = 'RIGHT'
+        except Exception as e:
+            print(f"Advertencia: No se pudo cargar la imagen del código de barras {header_barcode_path}: {e}")
+            barcode_img_obj = Paragraph("(Error Código Barras)", styles['Normal'])
 
-        # Calculate how many vales we need to fill the PDF
-        vales_per_page = 5
-        total_pages_needed = 1
-        total_vales_needed = vales_per_page * total_pages_needed
+        header_content_data = [
+            [Paragraph(f"<b>REFERENCIA:</b> {referencia}", styles['Normal']),
+            Paragraph(f"<b>COLOR:</b> {color}", styles['Normal'])],
+            [Paragraph(f"<b>N° TICKET:</b> {ticket_number}", styles['Normal']),
+            barcode_img_obj]
+        ]
         
-        extended_ticket_numbers = []
-        ticket_count = len(ticket_numbers)
-        
-        for i in range(total_vales_needed):
-            ticket_index = i % ticket_count
-            extended_ticket_numbers.append(ticket_numbers[ticket_index])
-        
-        for i, ticket_number in enumerate(extended_ticket_numbers):
-            # --- MODIFICACIÓN AQUÍ ---
-            # Prepare quantities row
-            # Para cada talla en 'sizes', si esa talla (convertida a string) está como clave en 'tallas_cantidades',
-            # entonces usa 'total_producido'. De lo contrario, usa '0'.
-            qty_row = [str(total_producido) if str(size) in tallas_cantidades else '' for size in sizes]
-            # --- FIN DE LA MODIFICACIÓN ---
+        header_table = Table(header_content_data, colWidths=[5.2*inch, 2.5*inch])
+        header_table.setStyle(TableStyle([
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+            ('SPAN', (1,1), (1,1)),
+            ('ALIGN', (1,1), (1,1), 'RIGHT'),
+        ]))
+        elements.append(header_table)
+        elements.append(Spacer(1, 0.15*inch))
 
-            # Prepare barcode image
-            barcode_img = Image(serial_code_path, width=100, height=40) # Ajusta width/height según necesites
+        # --- 2. Secciones por Tipo de Trabajo ---
+        tipos_de_trabajo_definidos = {
+            "CORTE": "Corte",
+            "EMPAQUE": "Empaque",
+            "GUARNECEDOR": "Guarnecedor",
+            "MONTADOR": "Montador",
+            "PLANTILLAS": "Plantillas",
+            "SOLDADOR": "Soldador"
+        }
 
-            # Create main container table
-            container_data = [[
-                Paragraph(f"{tipo_trabajo.upper()}", styles['Heading2']),
-                "",
-                barcode_img
-            ]]
-            container_table = Table(container_data, colWidths=[300, 50, 180]) # Ajustado para que sume cerca de 530
-            container_table.setStyle(TableStyle([
-                ('ALIGN', (0, 0), (0, 0), 'LEFT'),
-                ('ALIGN', (2, 0), (2, 0), 'RIGHT'),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                # ('BOX', (0, 0), (-1, -1), 2, colors.green) # Comentado para que la tabla completa tenga el borde
-            ]))
+        tallas_column_headers = [str(s) for s in range(33, 49)]
+        num_tallas_columnas = len(tallas_column_headers)
+        fila_datos_cantidades = [str(tallas_cantidades.get(str(s), "0")) for s in range(33, 49)]
+        ancho_tabla_tallas_disponible = 7.7 * inch
+        ancho_columna_talla = ancho_tabla_tallas_disponible / num_tallas_columnas
 
-            # Ticket details table
-            details_data = [
-                ["Referencia:", referencia, "Color:", color, f"N° {ticket_number}"]
+        estilo_tabla_tallas = TableStyle([
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#B0B0B0")),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#E8E8E8")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.black),
+            ('FONTSIZE', (0,0), (-1,-1), 7.5),
+            ('LEFTPADDING', (0,0), (-1,-1), 2),
+            ('RIGHTPADDING', (0,0), (-1,-1), 2),
+            ('TOPPADDING', (0,0), (-1,-1), 2),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        ])
+
+        for nombre_display, llave_valor in tipos_de_trabajo_definidos.items():
+            valor_especifico_trabajo = valores_trabajo.get(llave_valor, 0.00)
+            barcode_path = barcode_paths.get(llave_valor, "")
+            try:
+                barcode_img = Image(barcode_path, width=1.6*inch, height=0.6*inch) if barcode_path else Paragraph("(Sin Código)", styles['Normal'])
+                barcode_img.hAlign = 'RIGHT'
+            except Exception as e:
+                print(f"Advertencia: No se pudo cargar la imagen del código de barras {barcode_path}: {e}")
+                barcode_img = Paragraph("(Error Código Barras)", styles['Normal'])
+
+            tabla_tallas_actual = Table([tallas_column_headers, fila_datos_cantidades],
+                                        colWidths=[ancho_columna_talla] * num_tallas_columnas)
+            tabla_tallas_actual.setStyle(estilo_tabla_tallas)
+
+            titulo_seccion = Paragraph(f"<b>{nombre_display}</b>", styles['Normal'])
+            parrafo_valor = Paragraph(f"<b>Valor:</b> {valor_especifico_trabajo:.2f}", styles['Normal'])
+            parrafo_firma = Paragraph("<b>Firma:</b> ________________________", styles['Normal'])
+            parrafo_codigo = barcode_img
+
+            tabla_valor_firma_codigo_data = [
+                [parrafo_valor, parrafo_firma],
+                [parrafo_codigo, ""]
             ]
-            # Ajustar colWidths para que sumen el ancho de la tabla contenedora (530)
-            details_table = Table(details_data, colWidths=[80, 150, 50, 100, 150])
-            details_table.setStyle(TableStyle([
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-                # ('BOX', (0, 0), (-1, -1), 1, colors.green)
+            tabla_valor_firma_codigo = Table(tabla_valor_firma_codigo_data,
+                                            colWidths=[ancho_tabla_tallas_disponible * 0.5,
+                                                        ancho_tabla_tallas_disponible * 0.5])
+            tabla_valor_firma_codigo.setStyle(TableStyle([
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('ALIGN', (0,0), (0,0), 'LEFT'),
+                ('ALIGN', (0,1), (0,1), 'RIGHT'),
+                ('LEFTPADDING', (0,0), (-1,-1), 0),
+                ('RIGHTPADDING', (0,0), (-1,-1), 0),
+                ('TOPPADDING', (0,0), (-1,-1), 3),
             ]))
 
-            # Sizes and quantities table
-            # El ancho de cada columna es (ancho total / número de tallas)
-            # Ancho total disponible es 530. Número de tallas es len(size_row)
-            col_width_size = 530 / len(size_row)
-            sizes_table = Table([size_row, qty_row], colWidths=[col_width_size] * len(size_row))
-            sizes_table.setStyle(TableStyle([
-                ('GRID', (0, 0), (-1, -1), 1, colors.green),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold')
-            ]))
-
-            # Footer table
-            footer_data = [["Firma:", "________________", "Total:", str(total_producido)]]
-            # Ajustar colWidths para que sumen el ancho de la tabla contenedora (530)
-            footer_table = Table(footer_data, colWidths=[50, 250, 50, 180])
-            footer_table.setStyle(TableStyle([
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-                ('ALIGN', (2,0), (2,0), 'RIGHT'), # Total a la derecha
-                ('ALIGN', (3,0), (3,0), 'RIGHT'), # Valor del total a la derecha
-                # ('BOX', (0, 0), (-1, -1), 1, colors.green)
-            ]))
-
-            # Agrupar todos los componentes en una sola tabla contenedora
-            complete_vale_data = [
-                [container_table],
-                [details_table],
-                [sizes_table],
-                [footer_table]
+            datos_tabla_seccion = [
+                [titulo_seccion],
+                [tabla_tallas_actual],
+                [tabla_valor_firma_codigo]
             ]
-            
-            complete_vale_table = Table(complete_vale_data, colWidths=[530]) # Ancho total del vale
-            complete_vale_table.setStyle(TableStyle([
-                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                ('LEFTPADDING', (0, 0), (-1, -1), 0),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-                ('TOPPADDING', (0, 0), (-1, -1), 0),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 2), # Pequeño espacio entre elementos internos
-                ('BOX', (0,0), (-1,-1), 1, colors.green) # Borde verde para todo el vale
+            tabla_seccion = Table(datos_tabla_seccion, colWidths=[ancho_tabla_tallas_disponible])
+            tabla_seccion.setStyle(TableStyle([
+                ('BOX', (0,0), (-1,-1), 1, colors.HexColor("#808080")),
+                ('LEFTPADDING', (0,0), (-1,-1), 6),
+                ('RIGHTPADDING', (0,0), (-1,-1), 6),
+                ('TOPPADDING', (0,0), (-1,-1), 6),
+                ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+                ('ALIGN', (0,0), (0,0), 'CENTER'),
+                ('BOTTOMPADDING', (0,0), (0,0), 5),
             ]))
-
-            elements.append(KeepTogether([complete_vale_table]))
             
-            if i < len(extended_ticket_numbers) - 1:
-                elements.append(Spacer(1, 10)) # 10 puntos de espacio vertical
+            elements.append(tabla_seccion)
+            elements.append(Spacer(1, 0.1*inch))
 
-            if (i + 1) % vales_per_page == 0 and (i + 1) < len(extended_ticket_numbers):
-                elements.append(PageBreak())
+        parrafo_total_general = Paragraph(f"<b>TOTAL GENERAL PRODUCIDO (UNIDADES): {total_producido_calculado}</b>", styles['h3'])
+        parrafo_total_general.hAlign = 'CENTER'
+        elements.append(Spacer(1, 0.15*inch))
+        elements.append(parrafo_total_general)
 
-        doc.build(elements)
-        return pdf_path
-    
+        try:
+            doc.build(elements)
+            return pdf_path
+        except Exception as e:
+            print(f"Error al generar el PDF del vale '{pdf_filename}': {e}")
+            QMessageBox.critical(self, "Error PDF", f"No se pudo generar el PDF:\n{e}")
+            return None
+        
+
     def generate_vale_pdf_funcional(self, ticket_numbers, tipo_trabajo, referencia, tallas_cantidades, color, total_producido, serial_code_path):
         """
         Generate a PDF work voucher with multiple tickets on a single page.
@@ -1924,4 +1682,5 @@ if __name__ == "__main__":
     QtGui.QFontDatabase.addApplicationFont('fonts/segoeui.ttf')
     QtGui.QFontDatabase.addApplicationFont('fonts/segoeuib.ttf')
     window = MainWindow()
+
     sys.exit(app.exec_())
