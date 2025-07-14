@@ -1492,21 +1492,14 @@ class Ui_MainWindow(object):
         self.scrollAreaWidgetContents = QWidget()
         self.scrollAreaWidgetContents.setObjectName(u"scrollAreaWidgetContents")
         self.scrollAreaWidgetContents.setGeometry(QRect(0, 0, 303, 423))
-        self.formLayout_2 = QFormLayout(self.scrollAreaWidgetContents)
-        self.formLayout_2.setObjectName(u"formLayout_2")
+        self.formLayout = QFormLayout(self.scrollAreaWidgetContents)
+        self.formLayout.setObjectName(u"formLayout")
         self.labelBoxBlenderInstalation_24 = QLabel(self.scrollAreaWidgetContents)
         self.labelBoxBlenderInstalation_24.setObjectName(u"labelBoxBlenderInstalation_24")
         self.labelBoxBlenderInstalation_24.setFont(font1)
         self.labelBoxBlenderInstalation_24.setStyleSheet(u"")
 
-        self.formLayout_2.setWidget(0, QFormLayout.LabelRole, self.labelBoxBlenderInstalation_24)
-
-        self.labelBoxBlenderInstalation_27 = QLabel(self.scrollAreaWidgetContents)
-        self.labelBoxBlenderInstalation_27.setObjectName(u"labelBoxBlenderInstalation_27")
-        self.labelBoxBlenderInstalation_27.setFont(font1)
-        self.labelBoxBlenderInstalation_27.setStyleSheet(u"")
-
-        self.formLayout_2.setWidget(1, QFormLayout.LabelRole, self.labelBoxBlenderInstalation_27)
+        self.formLayout.setWidget(0, QFormLayout.SpanningRole, self.labelBoxBlenderInstalation_24)
 
         self.CampoValorPlantillas = QLineEdit(self.scrollAreaWidgetContents)
         self.CampoValorPlantillas.setObjectName(u"CampoValorPlantillas")
@@ -1524,14 +1517,7 @@ class Ui_MainWindow(object):
 "	border: 2px solid rgb(91, 101, 124);\n"
 "}")
 
-        self.formLayout_2.setWidget(1, QFormLayout.FieldRole, self.CampoValorPlantillas)
-
-        self.labelBoxBlenderInstalation_29 = QLabel(self.scrollAreaWidgetContents)
-        self.labelBoxBlenderInstalation_29.setObjectName(u"labelBoxBlenderInstalation_29")
-        self.labelBoxBlenderInstalation_29.setFont(font1)
-        self.labelBoxBlenderInstalation_29.setStyleSheet(u"")
-
-        self.formLayout_2.setWidget(2, QFormLayout.LabelRole, self.labelBoxBlenderInstalation_29)
+        self.formLayout.setWidget(2, QFormLayout.FieldRole, self.CampoValorPlantillas)
 
         self.CampoValorEmpaque = QLineEdit(self.scrollAreaWidgetContents)
         self.CampoValorEmpaque.setObjectName(u"CampoValorEmpaque")
@@ -1549,89 +1535,146 @@ class Ui_MainWindow(object):
 "	border: 2px solid rgb(91, 101, 124);\n"
 "}")
 
-        self.formLayout_2.setWidget(2, QFormLayout.FieldRole, self.CampoValorEmpaque)
+        self.formLayout.setWidget(4, QFormLayout.FieldRole, self.CampoValorEmpaque)
+
+        self.CampoValorEnsuelado = QLineEdit(self.scrollAreaWidgetContents)
+        self.CampoValorEnsuelado.setObjectName(u"CampoValorEnsuelado")
+        self.CampoValorEnsuelado.setMinimumSize(QSize(0, 30))
+        self.CampoValorEnsuelado.setStyleSheet(u"QLineEdit {\n"
+"	background-color: rgb(27, 29, 35);\n"
+"	border-radius: 5px;\n"
+"	border: 2px solid rgb(27, 29, 35);\n"
+"	padding-left: 10px;\n"
+"}\n"
+"QLineEdit:hover {\n"
+"	border: 2px solid rgb(64, 71, 88);\n"
+"}\n"
+"QLineEdit:focus {\n"
+"	border: 2px solid rgb(91, 101, 124);\n"
+"}")
+
+        self.formLayout.setWidget(6, QFormLayout.FieldRole, self.CampoValorEnsuelado)
+
+        self.CampoValorAlistamiento = QLineEdit(self.scrollAreaWidgetContents)
+        self.CampoValorAlistamiento.setObjectName(u"CampoValorAlistamiento")
+        self.CampoValorAlistamiento.setMinimumSize(QSize(0, 30))
+        self.CampoValorAlistamiento.setStyleSheet(u"QLineEdit {\n"
+"	background-color: rgb(27, 29, 35);\n"
+"	border-radius: 5px;\n"
+"	border: 2px solid rgb(27, 29, 35);\n"
+"	padding-left: 10px;\n"
+"}\n"
+"QLineEdit:hover {\n"
+"	border: 2px solid rgb(64, 71, 88);\n"
+"}\n"
+"QLineEdit:focus {\n"
+"	border: 2px solid rgb(91, 101, 124);\n"
+"}")
+
+        self.formLayout.setWidget(8, QFormLayout.FieldRole, self.CampoValorAlistamiento)
+
+        self.CampoValorMontar = QLineEdit(self.scrollAreaWidgetContents)
+        self.CampoValorMontar.setObjectName(u"CampoValorMontar")
+        self.CampoValorMontar.setMinimumSize(QSize(0, 30))
+        self.CampoValorMontar.setStyleSheet(u"QLineEdit {\n"
+"	background-color: rgb(27, 29, 35);\n"
+"	border-radius: 5px;\n"
+"	border: 2px solid rgb(27, 29, 35);\n"
+"	padding-left: 10px;\n"
+"}\n"
+"QLineEdit:hover {\n"
+"	border: 2px solid rgb(64, 71, 88);\n"
+"}\n"
+"QLineEdit:focus {\n"
+"	border: 2px solid rgb(91, 101, 124);\n"
+"}")
+
+        self.formLayout.setWidget(10, QFormLayout.FieldRole, self.CampoValorMontar)
+
+        self.CampoValorEngrudar = QLineEdit(self.scrollAreaWidgetContents)
+        self.CampoValorEngrudar.setObjectName(u"CampoValorEngrudar")
+        self.CampoValorEngrudar.setMinimumSize(QSize(0, 30))
+        self.CampoValorEngrudar.setStyleSheet(u"QLineEdit {\n"
+"	background-color: rgb(27, 29, 35);\n"
+"	border-radius: 5px;\n"
+"	border: 2px solid rgb(27, 29, 35);\n"
+"	padding-left: 10px;\n"
+"}\n"
+"QLineEdit:hover {\n"
+"	border: 2px solid rgb(64, 71, 88);\n"
+"}\n"
+"QLineEdit:focus {\n"
+"	border: 2px solid rgb(91, 101, 124);\n"
+"}")
+
+        self.formLayout.setWidget(13, QFormLayout.FieldRole, self.CampoValorEngrudar)
+
+        self.CampoValorGuarnicion = QLineEdit(self.scrollAreaWidgetContents)
+        self.CampoValorGuarnicion.setObjectName(u"CampoValorGuarnicion")
+        self.CampoValorGuarnicion.setMinimumSize(QSize(0, 30))
+        self.CampoValorGuarnicion.setStyleSheet(u"QLineEdit {\n"
+"	background-color: rgb(27, 29, 35);\n"
+"	border-radius: 5px;\n"
+"	border: 2px solid rgb(27, 29, 35);\n"
+"	padding-left: 10px;\n"
+"}\n"
+"QLineEdit:hover {\n"
+"	border: 2px solid rgb(64, 71, 88);\n"
+"}\n"
+"QLineEdit:focus {\n"
+"	border: 2px solid rgb(91, 101, 124);\n"
+"}")
+
+        self.formLayout.setWidget(17, QFormLayout.FieldRole, self.CampoValorGuarnicion)
+
+        self.labelBoxBlenderInstalation_27 = QLabel(self.scrollAreaWidgetContents)
+        self.labelBoxBlenderInstalation_27.setObjectName(u"labelBoxBlenderInstalation_27")
+        self.labelBoxBlenderInstalation_27.setFont(font1)
+        self.labelBoxBlenderInstalation_27.setStyleSheet(u"")
+
+        self.formLayout.setWidget(2, QFormLayout.LabelRole, self.labelBoxBlenderInstalation_27)
+
+        self.labelBoxBlenderInstalation_29 = QLabel(self.scrollAreaWidgetContents)
+        self.labelBoxBlenderInstalation_29.setObjectName(u"labelBoxBlenderInstalation_29")
+        self.labelBoxBlenderInstalation_29.setFont(font1)
+        self.labelBoxBlenderInstalation_29.setStyleSheet(u"")
+
+        self.formLayout.setWidget(4, QFormLayout.LabelRole, self.labelBoxBlenderInstalation_29)
 
         self.labelBoxBlenderInstalation_23 = QLabel(self.scrollAreaWidgetContents)
         self.labelBoxBlenderInstalation_23.setObjectName(u"labelBoxBlenderInstalation_23")
         self.labelBoxBlenderInstalation_23.setFont(font1)
         self.labelBoxBlenderInstalation_23.setStyleSheet(u"")
 
-        self.formLayout_2.setWidget(3, QFormLayout.LabelRole, self.labelBoxBlenderInstalation_23)
-
-        self.CampoValorSoldador = QLineEdit(self.scrollAreaWidgetContents)
-        self.CampoValorSoldador.setObjectName(u"CampoValorSoldador")
-        self.CampoValorSoldador.setMinimumSize(QSize(0, 30))
-        self.CampoValorSoldador.setStyleSheet(u"QLineEdit {\n"
-"	background-color: rgb(27, 29, 35);\n"
-"	border-radius: 5px;\n"
-"	border: 2px solid rgb(27, 29, 35);\n"
-"	padding-left: 10px;\n"
-"}\n"
-"QLineEdit:hover {\n"
-"	border: 2px solid rgb(64, 71, 88);\n"
-"}\n"
-"QLineEdit:focus {\n"
-"	border: 2px solid rgb(91, 101, 124);\n"
-"}")
-
-        self.formLayout_2.setWidget(3, QFormLayout.FieldRole, self.CampoValorSoldador)
+        self.formLayout.setWidget(6, QFormLayout.LabelRole, self.labelBoxBlenderInstalation_23)
 
         self.labelBoxBlenderInstalation_26 = QLabel(self.scrollAreaWidgetContents)
         self.labelBoxBlenderInstalation_26.setObjectName(u"labelBoxBlenderInstalation_26")
         self.labelBoxBlenderInstalation_26.setFont(font1)
         self.labelBoxBlenderInstalation_26.setStyleSheet(u"")
 
-        self.formLayout_2.setWidget(4, QFormLayout.LabelRole, self.labelBoxBlenderInstalation_26)
-
-        self.CampoValorMontador = QLineEdit(self.scrollAreaWidgetContents)
-        self.CampoValorMontador.setObjectName(u"CampoValorMontador")
-        self.CampoValorMontador.setMinimumSize(QSize(0, 30))
-        self.CampoValorMontador.setStyleSheet(u"QLineEdit {\n"
-"	background-color: rgb(27, 29, 35);\n"
-"	border-radius: 5px;\n"
-"	border: 2px solid rgb(27, 29, 35);\n"
-"	padding-left: 10px;\n"
-"}\n"
-"QLineEdit:hover {\n"
-"	border: 2px solid rgb(64, 71, 88);\n"
-"}\n"
-"QLineEdit:focus {\n"
-"	border: 2px solid rgb(91, 101, 124);\n"
-"}")
-
-        self.formLayout_2.setWidget(4, QFormLayout.FieldRole, self.CampoValorMontador)
+        self.formLayout.setWidget(8, QFormLayout.LabelRole, self.labelBoxBlenderInstalation_26)
 
         self.labelBoxBlenderInstalation_28 = QLabel(self.scrollAreaWidgetContents)
         self.labelBoxBlenderInstalation_28.setObjectName(u"labelBoxBlenderInstalation_28")
         self.labelBoxBlenderInstalation_28.setFont(font1)
         self.labelBoxBlenderInstalation_28.setStyleSheet(u"")
 
-        self.formLayout_2.setWidget(5, QFormLayout.LabelRole, self.labelBoxBlenderInstalation_28)
+        self.formLayout.setWidget(10, QFormLayout.LabelRole, self.labelBoxBlenderInstalation_28)
 
-        self.CampoValorGuarnecedor = QLineEdit(self.scrollAreaWidgetContents)
-        self.CampoValorGuarnecedor.setObjectName(u"CampoValorGuarnecedor")
-        self.CampoValorGuarnecedor.setMinimumSize(QSize(0, 30))
-        self.CampoValorGuarnecedor.setStyleSheet(u"QLineEdit {\n"
-"	background-color: rgb(27, 29, 35);\n"
-"	border-radius: 5px;\n"
-"	border: 2px solid rgb(27, 29, 35);\n"
-"	padding-left: 10px;\n"
-"}\n"
-"QLineEdit:hover {\n"
-"	border: 2px solid rgb(64, 71, 88);\n"
-"}\n"
-"QLineEdit:focus {\n"
-"	border: 2px solid rgb(91, 101, 124);\n"
-"}")
+        self.labelBoxBlenderInstalation_30 = QLabel(self.scrollAreaWidgetContents)
+        self.labelBoxBlenderInstalation_30.setObjectName(u"labelBoxBlenderInstalation_30")
+        self.labelBoxBlenderInstalation_30.setFont(font1)
+        self.labelBoxBlenderInstalation_30.setStyleSheet(u"")
 
-        self.formLayout_2.setWidget(5, QFormLayout.FieldRole, self.CampoValorGuarnecedor)
+        self.formLayout.setWidget(13, QFormLayout.LabelRole, self.labelBoxBlenderInstalation_30)
 
-        self.labelBoxBlenderInstalation_25 = QLabel(self.scrollAreaWidgetContents)
-        self.labelBoxBlenderInstalation_25.setObjectName(u"labelBoxBlenderInstalation_25")
-        self.labelBoxBlenderInstalation_25.setFont(font1)
-        self.labelBoxBlenderInstalation_25.setStyleSheet(u"")
+        self.labelBoxBlenderInstalation_31 = QLabel(self.scrollAreaWidgetContents)
+        self.labelBoxBlenderInstalation_31.setObjectName(u"labelBoxBlenderInstalation_31")
+        self.labelBoxBlenderInstalation_31.setFont(font1)
+        self.labelBoxBlenderInstalation_31.setStyleSheet(u"")
 
-        self.formLayout_2.setWidget(6, QFormLayout.LabelRole, self.labelBoxBlenderInstalation_25)
+        self.formLayout.setWidget(17, QFormLayout.LabelRole, self.labelBoxBlenderInstalation_31)
 
         self.CampoValorCorte = QLineEdit(self.scrollAreaWidgetContents)
         self.CampoValorCorte.setObjectName(u"CampoValorCorte")
@@ -1649,22 +1692,33 @@ class Ui_MainWindow(object):
 "	border: 2px solid rgb(91, 101, 124);\n"
 "}")
 
-        self.formLayout_2.setWidget(6, QFormLayout.FieldRole, self.CampoValorCorte)
+        self.formLayout.setWidget(18, QFormLayout.FieldRole, self.CampoValorCorte)
+
+        self.labelBoxBlenderInstalation_25 = QLabel(self.scrollAreaWidgetContents)
+        self.labelBoxBlenderInstalation_25.setObjectName(u"labelBoxBlenderInstalation_25")
+        self.labelBoxBlenderInstalation_25.setFont(font1)
+        self.labelBoxBlenderInstalation_25.setStyleSheet(u"")
+
+        self.formLayout.setWidget(18, QFormLayout.LabelRole, self.labelBoxBlenderInstalation_25)
 
         self.scrollArea.setWidget(self.scrollAreaWidgetContents)
-        self.labelBoxBlenderInstalation_28.raise_()
-        self.CampoValorGuarnecedor.raise_()
-        self.CampoValorCorte.raise_()
-        self.labelBoxBlenderInstalation_25.raise_()
-        self.CampoValorSoldador.raise_()
+        self.CampoValorMontar.raise_()
+        self.CampoValorEnsuelado.raise_()
         self.CampoValorEmpaque.raise_()
         self.CampoValorPlantillas.raise_()
+        self.CampoValorAlistamiento.raise_()
+        self.labelBoxBlenderInstalation_24.raise_()
+        self.CampoValorEngrudar.raise_()
+        self.CampoValorGuarnicion.raise_()
         self.labelBoxBlenderInstalation_27.raise_()
         self.labelBoxBlenderInstalation_29.raise_()
         self.labelBoxBlenderInstalation_23.raise_()
         self.labelBoxBlenderInstalation_26.raise_()
-        self.CampoValorMontador.raise_()
-        self.labelBoxBlenderInstalation_24.raise_()
+        self.labelBoxBlenderInstalation_28.raise_()
+        self.labelBoxBlenderInstalation_30.raise_()
+        self.labelBoxBlenderInstalation_31.raise_()
+        self.CampoValorCorte.raise_()
+        self.labelBoxBlenderInstalation_25.raise_()
 
         self.horizontalLayout_9.addWidget(self.scrollArea)
 
@@ -1798,16 +1852,16 @@ class Ui_MainWindow(object):
         self.Nombre_Empleado.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Nombre Empleado", None))
         self.labelBoxBlenderInstalation_17.setText(QCoreApplication.translate("MainWindow", u"Cedula", None))
         self.Cedula_Empleado.setText("")
-        self.Cedula_Empleado.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Cedula Empleado", None))
+        self.Cedula_Empleado.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Cedula", None))
         self.la.setText(QCoreApplication.translate("MainWindow", u"Numero de Celular", None))
         self.Celular_Empleado.setText("")
-        self.Celular_Empleado.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Celular Empleado", None))
+        self.Celular_Empleado.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Celular", None))
         self.labelBoxCorreo.setText(QCoreApplication.translate("MainWindow", u"Correo Electronico", None))
         self.Correo_Empleado.setText("")
-        self.Correo_Empleado.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Correo Empleado", None))
+        self.Correo_Empleado.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Correo electronico", None))
         self.btnAgregarEmpleado.setText(QCoreApplication.translate("MainWindow", u"Guardar Empleado", None))
         self.CampoReferenciaTrabajo.setText("")
-        self.CampoReferenciaTrabajo.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Referencia de zapato", None))
+        self.CampoReferenciaTrabajo.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Referencia de Calzado", None))
         self.labelBoxBlenderInstalation_20.setText(QCoreApplication.translate("MainWindow", u"Referencia", None))
         self.CampoTalla_35.setText("")
         self.CampoTalla_35.setPlaceholderText(QCoreApplication.translate("MainWindow", u"35", None))
@@ -1844,29 +1898,35 @@ class Ui_MainWindow(object):
         self.CampoTalla_33.setPlaceholderText(QCoreApplication.translate("MainWindow", u"33", None))
         self.labelBoxBlenderInstalation_16.setText(QCoreApplication.translate("MainWindow", u"Numero de ticket", None))
         self.CampoNumeroTicket.setText("")
-        self.CampoNumeroTicket.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Numero Ticket", None))
+        self.CampoNumeroTicket.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Numero de Ticket", None))
         self.labelBoxBlenderInstalation_21.setText(QCoreApplication.translate("MainWindow", u"Color", None))
         self.CampoColor.setText("")
         self.CampoColor.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Color", None))
         self.labelBoxBlenderInstalation_24.setText(QCoreApplication.translate("MainWindow", u"Precio por tipo de trabajo", None))
-        self.labelBoxBlenderInstalation_27.setText(QCoreApplication.translate("MainWindow", u"Plantillas", None))
         self.CampoValorPlantillas.setText("")
-        self.CampoValorPlantillas.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Plantillas", None))
-        self.labelBoxBlenderInstalation_29.setText(QCoreApplication.translate("MainWindow", u"Empaque", None))
+        self.CampoValorPlantillas.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Plantillas Terry", None))
         self.CampoValorEmpaque.setText("")
         self.CampoValorEmpaque.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Empaque", None))
-        self.labelBoxBlenderInstalation_23.setText(QCoreApplication.translate("MainWindow", u"Soldador", None))
-        self.CampoValorSoldador.setText("")
-        self.CampoValorSoldador.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Soldador", None))
-        self.labelBoxBlenderInstalation_26.setText(QCoreApplication.translate("MainWindow", u"Montador", None))
-        self.CampoValorMontador.setText("")
-        self.CampoValorMontador.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Montador", None))
-        self.labelBoxBlenderInstalation_28.setText(QCoreApplication.translate("MainWindow", u"Guarnecedor", None))
-        self.CampoValorGuarnecedor.setText("")
-        self.CampoValorGuarnecedor.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Guarnecedor", None))
-        self.labelBoxBlenderInstalation_25.setText(QCoreApplication.translate("MainWindow", u"Corte", None))
+        self.CampoValorEnsuelado.setText("")
+        self.CampoValorEnsuelado.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Ensuelado", None))
+        self.CampoValorAlistamiento.setText("")
+        self.CampoValorAlistamiento.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Alistamiento ", None))
+        self.CampoValorMontar.setText("")
+        self.CampoValorMontar.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Montar", None))
+        self.CampoValorEngrudar.setText("")
+        self.CampoValorEngrudar.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Engrudar", None))
+        self.CampoValorGuarnicion.setText("")
+        self.CampoValorGuarnicion.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Guarnicion", None))
+        self.labelBoxBlenderInstalation_27.setText(QCoreApplication.translate("MainWindow", u"Plantillas TERRY", None))
+        self.labelBoxBlenderInstalation_29.setText(QCoreApplication.translate("MainWindow", u"Empaque", None))
+        self.labelBoxBlenderInstalation_23.setText(QCoreApplication.translate("MainWindow", u"Ensuelado", None))
+        self.labelBoxBlenderInstalation_26.setText(QCoreApplication.translate("MainWindow", u"Alistamiento Ensuelado", None))
+        self.labelBoxBlenderInstalation_28.setText(QCoreApplication.translate("MainWindow", u"Montar", None))
+        self.labelBoxBlenderInstalation_30.setText(QCoreApplication.translate("MainWindow", u"Engrudar", None))
+        self.labelBoxBlenderInstalation_31.setText(QCoreApplication.translate("MainWindow", u"Guarnicion", None))
         self.CampoValorCorte.setText("")
         self.CampoValorCorte.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Corte", None))
+        self.labelBoxBlenderInstalation_25.setText(QCoreApplication.translate("MainWindow", u"Corte", None))
         self.pushButtonGuardar.setText(QCoreApplication.translate("MainWindow", u"Guardar tarea", None))
         self.label_credits.setText("")
         self.label_version.setText(QCoreApplication.translate("MainWindow", u"v1.0.0", None))

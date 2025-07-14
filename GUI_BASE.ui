@@ -1359,7 +1359,7 @@ background-repeat: no-repeat;
                    <string notr="true">background: transparent;</string>
                   </property>
                   <property name="currentIndex">
-                   <number>0</number>
+                   <number>2</number>
                   </property>
                   <widget class="QWidget" name="page_home">
                    <layout class="QVBoxLayout" name="verticalLayout_10">
@@ -1451,7 +1451,7 @@ QPushButton:pressed {
 }</string>
                       </property>
                       <property name="text">
-                       <string>Guardar a Excel</string>
+                       <string>Limpiar Vista Previa</string>
                       </property>
                       <property name="icon">
                        <iconset resource="files.qrc">
@@ -1680,7 +1680,7 @@ QLineEdit:focus {
                                <string/>
                               </property>
                               <property name="placeholderText">
-                               <string>Your Password</string>
+                               <string>Nombre Empleado</string>
                               </property>
                              </widget>
                             </item>
@@ -1812,7 +1812,7 @@ QLineEdit:focus {
                                <string/>
                               </property>
                               <property name="placeholderText">
-                               <string>Your Password</string>
+                               <string>Cedula</string>
                               </property>
                              </widget>
                             </item>
@@ -1944,7 +1944,7 @@ QLineEdit:focus {
                                <string/>
                               </property>
                               <property name="placeholderText">
-                               <string>Your Password</string>
+                               <string>Celular</string>
                               </property>
                              </widget>
                             </item>
@@ -2076,7 +2076,7 @@ QLineEdit:focus {
                                <string/>
                               </property>
                               <property name="placeholderText">
-                               <string>Your Password</string>
+                               <string>Correo electronico</string>
                               </property>
                              </widget>
                             </item>
@@ -2197,7 +2197,7 @@ QLineEdit:focus {
                              <string/>
                             </property>
                             <property name="placeholderText">
-                             <string>Your Password</string>
+                             <string>Referencia de Calzado</string>
                             </property>
                            </widget>
                           </item>
@@ -2280,7 +2280,7 @@ QLineEdit:focus {
                              <string/>
                             </property>
                             <property name="placeholderText">
-                             <string>Your Password</string>
+                             <string>35</string>
                             </property>
                            </widget>
                           </item>
@@ -2328,7 +2328,7 @@ QLineEdit:focus {
                              <string/>
                             </property>
                             <property name="placeholderText">
-                             <string>Your Password</string>
+                             <string>36</string>
                             </property>
                            </widget>
                           </item>
@@ -2358,7 +2358,7 @@ QLineEdit:focus {
                              <string/>
                             </property>
                             <property name="placeholderText">
-                             <string>Your Password</string>
+                             <string>34</string>
                             </property>
                            </widget>
                           </item>
@@ -2388,7 +2388,7 @@ QLineEdit:focus {
                              <string/>
                             </property>
                             <property name="placeholderText">
-                             <string>Your Password</string>
+                             <string>37</string>
                             </property>
                            </widget>
                           </item>
@@ -2418,7 +2418,7 @@ QLineEdit:focus {
                              <string/>
                             </property>
                             <property name="placeholderText">
-                             <string>Your Password</string>
+                             <string>38</string>
                             </property>
                            </widget>
                           </item>
@@ -2448,7 +2448,7 @@ QLineEdit:focus {
                              <string/>
                             </property>
                             <property name="placeholderText">
-                             <string>Your Password</string>
+                             <string>40</string>
                             </property>
                            </widget>
                           </item>
@@ -2478,7 +2478,7 @@ QLineEdit:focus {
                              <string/>
                             </property>
                             <property name="placeholderText">
-                             <string>Your Password</string>
+                             <string>39</string>
                             </property>
                            </widget>
                           </item>
@@ -2508,7 +2508,7 @@ QLineEdit:focus {
                              <string/>
                             </property>
                             <property name="placeholderText">
-                             <string>Your Password</string>
+                             <string>42</string>
                             </property>
                            </widget>
                           </item>
@@ -2538,7 +2538,7 @@ QLineEdit:focus {
                              <string/>
                             </property>
                             <property name="placeholderText">
-                             <string>Your Password</string>
+                             <string>48</string>
                             </property>
                            </widget>
                           </item>
@@ -2568,7 +2568,7 @@ QLineEdit:focus {
                              <string/>
                             </property>
                             <property name="placeholderText">
-                             <string>Your Password</string>
+                             <string>47</string>
                             </property>
                            </widget>
                           </item>
@@ -2598,7 +2598,7 @@ QLineEdit:focus {
                              <string/>
                             </property>
                             <property name="placeholderText">
-                             <string>Your Password</string>
+                             <string>44</string>
                             </property>
                            </widget>
                           </item>
@@ -2628,7 +2628,7 @@ QLineEdit:focus {
                              <string/>
                             </property>
                             <property name="placeholderText">
-                             <string>Your Password</string>
+                             <string>41</string>
                             </property>
                            </widget>
                           </item>
@@ -2658,7 +2658,7 @@ QLineEdit:focus {
                              <string/>
                             </property>
                             <property name="placeholderText">
-                             <string>Your Password</string>
+                             <string>45</string>
                             </property>
                            </widget>
                           </item>
@@ -2688,7 +2688,7 @@ QLineEdit:focus {
                              <string/>
                             </property>
                             <property name="placeholderText">
-                             <string>Your Password</string>
+                             <string>46</string>
                             </property>
                            </widget>
                           </item>
@@ -2718,7 +2718,7 @@ QLineEdit:focus {
                              <string/>
                             </property>
                             <property name="placeholderText">
-                             <string>Your Password</string>
+                             <string>43</string>
                             </property>
                            </widget>
                           </item>
@@ -2748,7 +2748,7 @@ QLineEdit:focus {
                              <string/>
                             </property>
                             <property name="placeholderText">
-                             <string>Your Password</string>
+                             <string>33</string>
                             </property>
                            </widget>
                           </item>
@@ -2891,7 +2891,7 @@ QLineEdit:focus {
                                 <string/>
                                </property>
                                <property name="placeholderText">
-                                <string>Your Password</string>
+                                <string>Numero de Ticket</string>
                                </property>
                               </widget>
                              </item>
@@ -3004,7 +3004,7 @@ QLineEdit:focus {
                                 <string/>
                                </property>
                                <property name="placeholderText">
-                                <string>Your Password</string>
+                                <string>Color</string>
                                </property>
                               </widget>
                              </item>
@@ -3028,8 +3028,8 @@ QLineEdit:focus {
                             <height>423</height>
                            </rect>
                           </property>
-                          <layout class="QFormLayout" name="formLayout_2">
-                           <item row="0" column="0">
+                          <layout class="QFormLayout" name="formLayout">
+                           <item row="0" column="0" colspan="2">
                             <widget class="QLabel" name="labelBoxBlenderInstalation_24">
                              <property name="font">
                               <font>
@@ -3047,25 +3047,7 @@ QLineEdit:focus {
                              </property>
                             </widget>
                            </item>
-                           <item row="1" column="0">
-                            <widget class="QLabel" name="labelBoxBlenderInstalation_27">
-                             <property name="font">
-                              <font>
-                               <family>Segoe UI</family>
-                               <pointsize>10</pointsize>
-                               <weight>75</weight>
-                               <bold>true</bold>
-                              </font>
-                             </property>
-                             <property name="styleSheet">
-                              <string notr="true"/>
-                             </property>
-                             <property name="text">
-                              <string>Plantillas</string>
-                             </property>
-                            </widget>
-                           </item>
-                           <item row="1" column="1">
+                           <item row="2" column="1">
                             <widget class="QLineEdit" name="CampoValorPlantillas">
                              <property name="minimumSize">
                               <size>
@@ -3091,29 +3073,11 @@ QLineEdit:focus {
                               <string/>
                              </property>
                              <property name="placeholderText">
-                              <string>Your Password</string>
+                              <string>Plantillas Terry</string>
                              </property>
                             </widget>
                            </item>
-                           <item row="2" column="0">
-                            <widget class="QLabel" name="labelBoxBlenderInstalation_29">
-                             <property name="font">
-                              <font>
-                               <family>Segoe UI</family>
-                               <pointsize>10</pointsize>
-                               <weight>75</weight>
-                               <bold>true</bold>
-                              </font>
-                             </property>
-                             <property name="styleSheet">
-                              <string notr="true"/>
-                             </property>
-                             <property name="text">
-                              <string>Empaque</string>
-                             </property>
-                            </widget>
-                           </item>
-                           <item row="2" column="1">
+                           <item row="4" column="1">
                             <widget class="QLineEdit" name="CampoValorEmpaque">
                              <property name="minimumSize">
                               <size>
@@ -3139,11 +3103,197 @@ QLineEdit:focus {
                               <string/>
                              </property>
                              <property name="placeholderText">
-                              <string>Your Password</string>
+                              <string>Empaque</string>
                              </property>
                             </widget>
                            </item>
-                           <item row="3" column="0">
+                           <item row="6" column="1">
+                            <widget class="QLineEdit" name="CampoValorEnsuelado">
+                             <property name="minimumSize">
+                              <size>
+                               <width>0</width>
+                               <height>30</height>
+                              </size>
+                             </property>
+                             <property name="styleSheet">
+                              <string notr="true">QLineEdit {
+	background-color: rgb(27, 29, 35);
+	border-radius: 5px;
+	border: 2px solid rgb(27, 29, 35);
+	padding-left: 10px;
+}
+QLineEdit:hover {
+	border: 2px solid rgb(64, 71, 88);
+}
+QLineEdit:focus {
+	border: 2px solid rgb(91, 101, 124);
+}</string>
+                             </property>
+                             <property name="text">
+                              <string/>
+                             </property>
+                             <property name="placeholderText">
+                              <string>Ensuelado</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item row="8" column="1">
+                            <widget class="QLineEdit" name="CampoValorAlistamiento">
+                             <property name="minimumSize">
+                              <size>
+                               <width>0</width>
+                               <height>30</height>
+                              </size>
+                             </property>
+                             <property name="styleSheet">
+                              <string notr="true">QLineEdit {
+	background-color: rgb(27, 29, 35);
+	border-radius: 5px;
+	border: 2px solid rgb(27, 29, 35);
+	padding-left: 10px;
+}
+QLineEdit:hover {
+	border: 2px solid rgb(64, 71, 88);
+}
+QLineEdit:focus {
+	border: 2px solid rgb(91, 101, 124);
+}</string>
+                             </property>
+                             <property name="text">
+                              <string/>
+                             </property>
+                             <property name="placeholderText">
+                              <string>Alistamiento </string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item row="10" column="1">
+                            <widget class="QLineEdit" name="CampoValorMontar">
+                             <property name="minimumSize">
+                              <size>
+                               <width>0</width>
+                               <height>30</height>
+                              </size>
+                             </property>
+                             <property name="styleSheet">
+                              <string notr="true">QLineEdit {
+	background-color: rgb(27, 29, 35);
+	border-radius: 5px;
+	border: 2px solid rgb(27, 29, 35);
+	padding-left: 10px;
+}
+QLineEdit:hover {
+	border: 2px solid rgb(64, 71, 88);
+}
+QLineEdit:focus {
+	border: 2px solid rgb(91, 101, 124);
+}</string>
+                             </property>
+                             <property name="text">
+                              <string/>
+                             </property>
+                             <property name="placeholderText">
+                              <string>Montar</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item row="13" column="1">
+                            <widget class="QLineEdit" name="CampoValorEngrudar">
+                             <property name="minimumSize">
+                              <size>
+                               <width>0</width>
+                               <height>30</height>
+                              </size>
+                             </property>
+                             <property name="styleSheet">
+                              <string notr="true">QLineEdit {
+	background-color: rgb(27, 29, 35);
+	border-radius: 5px;
+	border: 2px solid rgb(27, 29, 35);
+	padding-left: 10px;
+}
+QLineEdit:hover {
+	border: 2px solid rgb(64, 71, 88);
+}
+QLineEdit:focus {
+	border: 2px solid rgb(91, 101, 124);
+}</string>
+                             </property>
+                             <property name="text">
+                              <string/>
+                             </property>
+                             <property name="placeholderText">
+                              <string>Engrudar</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item row="17" column="1">
+                            <widget class="QLineEdit" name="CampoValorGuarnicion">
+                             <property name="minimumSize">
+                              <size>
+                               <width>0</width>
+                               <height>30</height>
+                              </size>
+                             </property>
+                             <property name="styleSheet">
+                              <string notr="true">QLineEdit {
+	background-color: rgb(27, 29, 35);
+	border-radius: 5px;
+	border: 2px solid rgb(27, 29, 35);
+	padding-left: 10px;
+}
+QLineEdit:hover {
+	border: 2px solid rgb(64, 71, 88);
+}
+QLineEdit:focus {
+	border: 2px solid rgb(91, 101, 124);
+}</string>
+                             </property>
+                             <property name="text">
+                              <string/>
+                             </property>
+                             <property name="placeholderText">
+                              <string>Guarnicion</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item row="2" column="0">
+                            <widget class="QLabel" name="labelBoxBlenderInstalation_27">
+                             <property name="font">
+                              <font>
+                               <family>Segoe UI</family>
+                               <pointsize>10</pointsize>
+                               <weight>75</weight>
+                               <bold>true</bold>
+                              </font>
+                             </property>
+                             <property name="styleSheet">
+                              <string notr="true"/>
+                             </property>
+                             <property name="text">
+                              <string>Plantillas TERRY</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item row="4" column="0">
+                            <widget class="QLabel" name="labelBoxBlenderInstalation_29">
+                             <property name="font">
+                              <font>
+                               <family>Segoe UI</family>
+                               <pointsize>10</pointsize>
+                               <weight>75</weight>
+                               <bold>true</bold>
+                              </font>
+                             </property>
+                             <property name="styleSheet">
+                              <string notr="true"/>
+                             </property>
+                             <property name="text">
+                              <string>Empaque</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item row="6" column="0">
                             <widget class="QLabel" name="labelBoxBlenderInstalation_23">
                              <property name="font">
                               <font>
@@ -3157,41 +3307,11 @@ QLineEdit:focus {
                               <string notr="true"/>
                              </property>
                              <property name="text">
-                              <string>Soldador</string>
+                              <string>Ensuelado</string>
                              </property>
                             </widget>
                            </item>
-                           <item row="3" column="1">
-                            <widget class="QLineEdit" name="CampoValorSoldador">
-                             <property name="minimumSize">
-                              <size>
-                               <width>0</width>
-                               <height>30</height>
-                              </size>
-                             </property>
-                             <property name="styleSheet">
-                              <string notr="true">QLineEdit {
-	background-color: rgb(27, 29, 35);
-	border-radius: 5px;
-	border: 2px solid rgb(27, 29, 35);
-	padding-left: 10px;
-}
-QLineEdit:hover {
-	border: 2px solid rgb(64, 71, 88);
-}
-QLineEdit:focus {
-	border: 2px solid rgb(91, 101, 124);
-}</string>
-                             </property>
-                             <property name="text">
-                              <string/>
-                             </property>
-                             <property name="placeholderText">
-                              <string>Your Password</string>
-                             </property>
-                            </widget>
-                           </item>
-                           <item row="4" column="0">
+                           <item row="8" column="0">
                             <widget class="QLabel" name="labelBoxBlenderInstalation_26">
                              <property name="font">
                               <font>
@@ -3205,41 +3325,11 @@ QLineEdit:focus {
                               <string notr="true"/>
                              </property>
                              <property name="text">
-                              <string>Montador</string>
+                              <string>Alistamiento Ensuelado</string>
                              </property>
                             </widget>
                            </item>
-                           <item row="4" column="1">
-                            <widget class="QLineEdit" name="CampoValorMontador">
-                             <property name="minimumSize">
-                              <size>
-                               <width>0</width>
-                               <height>30</height>
-                              </size>
-                             </property>
-                             <property name="styleSheet">
-                              <string notr="true">QLineEdit {
-	background-color: rgb(27, 29, 35);
-	border-radius: 5px;
-	border: 2px solid rgb(27, 29, 35);
-	padding-left: 10px;
-}
-QLineEdit:hover {
-	border: 2px solid rgb(64, 71, 88);
-}
-QLineEdit:focus {
-	border: 2px solid rgb(91, 101, 124);
-}</string>
-                             </property>
-                             <property name="text">
-                              <string/>
-                             </property>
-                             <property name="placeholderText">
-                              <string>Your Password</string>
-                             </property>
-                            </widget>
-                           </item>
-                           <item row="5" column="0">
+                           <item row="10" column="0">
                             <widget class="QLabel" name="labelBoxBlenderInstalation_28">
                              <property name="font">
                               <font>
@@ -3253,42 +3343,12 @@ QLineEdit:focus {
                               <string notr="true"/>
                              </property>
                              <property name="text">
-                              <string>Guarnecedor</string>
+                              <string>Montar</string>
                              </property>
                             </widget>
                            </item>
-                           <item row="5" column="1">
-                            <widget class="QLineEdit" name="CampoValorGuarnecedor">
-                             <property name="minimumSize">
-                              <size>
-                               <width>0</width>
-                               <height>30</height>
-                              </size>
-                             </property>
-                             <property name="styleSheet">
-                              <string notr="true">QLineEdit {
-	background-color: rgb(27, 29, 35);
-	border-radius: 5px;
-	border: 2px solid rgb(27, 29, 35);
-	padding-left: 10px;
-}
-QLineEdit:hover {
-	border: 2px solid rgb(64, 71, 88);
-}
-QLineEdit:focus {
-	border: 2px solid rgb(91, 101, 124);
-}</string>
-                             </property>
-                             <property name="text">
-                              <string/>
-                             </property>
-                             <property name="placeholderText">
-                              <string>Your Password</string>
-                             </property>
-                            </widget>
-                           </item>
-                           <item row="6" column="0">
-                            <widget class="QLabel" name="labelBoxBlenderInstalation_25">
+                           <item row="13" column="0">
+                            <widget class="QLabel" name="labelBoxBlenderInstalation_30">
                              <property name="font">
                               <font>
                                <family>Segoe UI</family>
@@ -3301,11 +3361,29 @@ QLineEdit:focus {
                               <string notr="true"/>
                              </property>
                              <property name="text">
-                              <string>Corte</string>
+                              <string>Engrudar</string>
                              </property>
                             </widget>
                            </item>
-                           <item row="6" column="1">
+                           <item row="17" column="0">
+                            <widget class="QLabel" name="labelBoxBlenderInstalation_31">
+                             <property name="font">
+                              <font>
+                               <family>Segoe UI</family>
+                               <pointsize>10</pointsize>
+                               <weight>75</weight>
+                               <bold>true</bold>
+                              </font>
+                             </property>
+                             <property name="styleSheet">
+                              <string notr="true"/>
+                             </property>
+                             <property name="text">
+                              <string>Guarnicion</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item row="18" column="1">
                             <widget class="QLineEdit" name="CampoValorCorte">
                              <property name="minimumSize">
                               <size>
@@ -3331,24 +3409,46 @@ QLineEdit:focus {
                               <string/>
                              </property>
                              <property name="placeholderText">
-                              <string>Your Password</string>
+                              <string>Corte</string>
+                             </property>
+                            </widget>
+                           </item>
+                           <item row="18" column="0">
+                            <widget class="QLabel" name="labelBoxBlenderInstalation_25">
+                             <property name="font">
+                              <font>
+                               <family>Segoe UI</family>
+                               <pointsize>10</pointsize>
+                               <weight>75</weight>
+                               <bold>true</bold>
+                              </font>
+                             </property>
+                             <property name="styleSheet">
+                              <string notr="true"/>
+                             </property>
+                             <property name="text">
+                              <string>Corte</string>
                              </property>
                             </widget>
                            </item>
                           </layout>
-                          <zorder>labelBoxBlenderInstalation_28</zorder>
-                          <zorder>CampoValorGuarnecedor</zorder>
-                          <zorder>CampoValorCorte</zorder>
-                          <zorder>labelBoxBlenderInstalation_25</zorder>
-                          <zorder>CampoValorSoldador</zorder>
+                          <zorder>CampoValorMontar</zorder>
+                          <zorder>CampoValorEnsuelado</zorder>
                           <zorder>CampoValorEmpaque</zorder>
                           <zorder>CampoValorPlantillas</zorder>
+                          <zorder>CampoValorAlistamiento</zorder>
+                          <zorder>labelBoxBlenderInstalation_24</zorder>
+                          <zorder>CampoValorEngrudar</zorder>
+                          <zorder>CampoValorGuarnicion</zorder>
                           <zorder>labelBoxBlenderInstalation_27</zorder>
                           <zorder>labelBoxBlenderInstalation_29</zorder>
                           <zorder>labelBoxBlenderInstalation_23</zorder>
                           <zorder>labelBoxBlenderInstalation_26</zorder>
-                          <zorder>CampoValorMontador</zorder>
-                          <zorder>labelBoxBlenderInstalation_24</zorder>
+                          <zorder>labelBoxBlenderInstalation_28</zorder>
+                          <zorder>labelBoxBlenderInstalation_30</zorder>
+                          <zorder>labelBoxBlenderInstalation_31</zorder>
+                          <zorder>CampoValorCorte</zorder>
+                          <zorder>labelBoxBlenderInstalation_25</zorder>
                          </widget>
                         </widget>
                        </item>
