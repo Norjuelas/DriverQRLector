@@ -27,6 +27,12 @@ from openpyxl.styles import Font, PatternFill, Alignment
 from PySide2.QtWidgets import QTableView, QVBoxLayout
 from PySide2.QtGui import QStandardItemModel
 
+# Imports 
+from generate_pdf import generate_vale_pdf
+
+from utils import validate_cedula, display_code_image
+
+from config import TIPOS_DE_TRABAJO, WORK_TYPE_ABBREVIATIONS, CAMPOS_VALOR_TRABAJO_MAP    
 # GUI FILE
 from app_modules import *
 
@@ -37,43 +43,7 @@ class MainWindow(QMainWindow):
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
         self.dragPos = None
-        
-        # Estos son tus nuevos diccionarios. Úsalos como la fuente principal.
 
-        self.TIPOS_DE_TRABAJO = {
-            "Plantillas TERRY": "Plantillas TERRY",
-            "EMPAQUE": "Empaque",
-            "ENSUELADO": "Ensuelado",
-            "ALISTAMIENTO PARA ENSUELADO": "Alistamiento para Ensuelado",
-            "MONTAR": "Montar",
-            "ENGRUDAR": "ENGRUDAR",
-            "GUARNICION": "Guarnicion",
-            "CORTE": "Corte"
-        }
-
-        # Estos son los nombres que se usarán como claves principales y en la UI.
-        # Usaremos las claves de este diccionario para mantener el orden y la consistencia.
-        self.WORK_TYPE_ABBREVIATIONS = {
-            "Corte": "CT",
-            "Guarnicion": "GU",
-            "Montar": "MO",
-            "ENGRUDAR": "EG",
-            "Alistamiento para Ensuelado": "AE",
-            "Ensuelado": "EN",
-            "Plantillas TERRY": "PT",
-            "Empaque": "EM",
-        }
-
-        self.CAMPOS_VALOR_TRABAJO_MAP = {
-            "Corte": "CampoValorCorte",
-            "Guarnicion": "CampoValorGuarnicion",
-            "Montar": "CampoValorMontar",
-            "ENGRUDAR": "CampoValorEngrudar",
-            "Alistamiento para Ensuelado": "CampoValorAlistamiento",
-            "Ensuelado": "CampoValorEnsuelado",
-            "Plantillas TERRY": "CampoValorPlantillas",
-            "Empaque": "CampoValorEmpaque",
-        }
         # Current code type (barcode or qr)
         self.current_code_type = "barcode"  # Default to barcode
 
@@ -153,7 +123,7 @@ class MainWindow(QMainWindow):
                 self.table_model = QStandardItemModel()
                 # Definir encabezados: fijos + dinámicos basados en WORK_TYPE_ABBREVIATIONS
                 fixed_headers = ["Código Serial", "Número Ticket", "Referencia", "Color", "Total Producido"]
-                valor_headers = [f"Valor {work_type}" for work_type in self.WORK_TYPE_ABBREVIATIONS.keys()]
+                valor_headers = [f"Valor {work_type}" for work_type in WORK_TYPE_ABBREVIATIONS.keys()]
                 self.table_model.setHorizontalHeaderLabels(fixed_headers + valor_headers)
                 
                 # Set model and adjust view
@@ -184,7 +154,7 @@ class MainWindow(QMainWindow):
             os.makedirs("codes")
 
         # Usar los nuevos tipos de trabajo definidos globalmente o en la clase
-        work_types = list(self.WORK_TYPE_ABBREVIATIONS.keys())
+        work_types = list(WORK_TYPE_ABBREVIATIONS.keys())
 
         # Definir las cabeceras para la hoja "Trabajos"
         trabajos_headers = ["Código Serial", "Número Ticket", "Referencia", "Color"]
@@ -269,7 +239,7 @@ class MainWindow(QMainWindow):
             # Añadir total producido y valores por tipo de trabajo
             row_data.append(total_producido_calculado)
             # Añadir valores para cada tipo de trabajo según WORK_TYPE_ABBREVIATIONS
-            for work_type in self.WORK_TYPE_ABBREVIATIONS.keys():
+            for work_type in WORK_TYPE_ABBREVIATIONS.keys():
                 row_data.append(valores_trabajo.get(work_type, 0))
             # Añadir tipo de código y ruta de la imagen
             row_data.extend([
@@ -277,7 +247,7 @@ class MainWindow(QMainWindow):
                 code_path  # Ruta Imagen
             ])
             # Añadir códigos seriales por tipo de trabajo
-            for work_type in self.WORK_TYPE_ABBREVIATIONS.keys():
+            for work_type in WORK_TYPE_ABBREVIATIONS.keys():
                 row_data.append(serial_codes.get(work_type, ""))
 
             # Añadir la fila a la hoja "Trabajos"
@@ -314,7 +284,7 @@ class MainWindow(QMainWindow):
                 total_producido_idx = headers.index("Total Producido")
                 # Mapear índices de columnas para valores de trabajo
                 valor_indices = {}
-                for work_type in self.WORK_TYPE_ABBREVIATIONS.keys():
+                for work_type in WORK_TYPE_ABBREVIATIONS.keys():
                     valor_column = f"Valor {work_type}"
                     if valor_column in headers:
                         valor_indices[work_type] = headers.index(valor_column)
@@ -394,7 +364,7 @@ class MainWindow(QMainWindow):
                 }
 
         # Configurar autocompletado para valores de trabajo usando CAMPOS_VALOR_TRABAJO_MAP
-        for work_type, field_name in self.CAMPOS_VALOR_TRABAJO_MAP.items():
+        for work_type, field_name in CAMPOS_VALOR_TRABAJO_MAP.items():
             if hasattr(self.ui, field_name):
                 campos_a_configurar[field_name.lower()] = {
                     'line_edit': getattr(self.ui, field_name),
@@ -407,38 +377,7 @@ class MainWindow(QMainWindow):
         else:
             print("No se encontraron campos para configurar el autocompletado.")
 
-    def display_code_image(self, image_path):
-        """Display the code image in the QGraphicsView"""
-        try:
-            if not hasattr(self.ui, 'PreviwImage'):
-                print("Error: PreviwImage not found in UI")
-                return False
-                
-            # Load image
-            pixmap = QPixmap(image_path)
-            if pixmap.isNull():
-                print(f"Error: No se pudo cargar la imagen en {image_path}")
-                return False
-            
-            # Get scene from QGraphicsView
-            scene = self.ui.PreviwImage.scene()
-            if scene is None:
-                scene = QGraphicsScene()
-                self.ui.PreviwImage.setScene(scene)
-            else:
-                scene.clear()
-            
-            # Add image to scene
-            scene.addPixmap(pixmap)
-            
-            # Fit view
-            self.ui.PreviwImage.fitInView(scene.sceneRect(), Qt.KeepAspectRatio)
-            
-            return True
-        except Exception as e:
-            print(f"Error al mostrar la imagen: {str(e)}")
-            QMessageBox.critical(self, "Error", f"Error al mostrar la imagen: {str(e)}")
-            return False
+
 
     def update_employee_reports(self):
         """
@@ -537,7 +476,7 @@ class MainWindow(QMainWindow):
                     vales_data.append(vale_dict)
 
             # Invertir WORK_TYPE_ABBREVIATIONS para mapear códigos a nombres completos
-            work_type_mapping = {v: k for k, v in self.WORK_TYPE_ABBREVIATIONS.items()}
+            work_type_mapping = {v: k for k, v in WORK_TYPE_ABBREVIATIONS.items()}
 
             # Inicializar datos del reporte consolidado
             report_data = {}
@@ -546,7 +485,7 @@ class MainWindow(QMainWindow):
                     "Nombre": empleados[emp_id]["Nombre"],
                     "Total_Vales": 0,
                     "Total_Valor": 0.0,
-                    "Trabajos": {work_type: 0 for work_type in self.WORK_TYPE_ABBREVIATIONS.keys()}
+                    "Trabajos": {work_type: 0 for work_type in WORK_TYPE_ABBREVIATIONS.keys()}
                 }
 
             # Procesar vales para el reporte consolidado
@@ -573,7 +512,7 @@ class MainWindow(QMainWindow):
                 self.table_model.clear()
                 # Definir encabezados: fijos + dinámicos basados en WORK_TYPE_ABBREVIATIONS
                 fixed_headers = ["EmpleadoID", "Nombre", "Total Vales", "Total Valor"]
-                work_type_headers = list(self.WORK_TYPE_ABBREVIATIONS.keys())
+                work_type_headers = list(WORK_TYPE_ABBREVIATIONS.keys())
                 self.table_model.setHorizontalHeaderLabels(fixed_headers + work_type_headers)
                 
                 for emp_id, data in report_data.items():
@@ -582,7 +521,7 @@ class MainWindow(QMainWindow):
                         data["Nombre"],
                         data["Total_Vales"],
                         round(data["Total_Valor"], 2)
-                    ] + [data["Trabajos"][work_type] for work_type in self.WORK_TYPE_ABBREVIATIONS.keys()]
+                    ] + [data["Trabajos"][work_type] for work_type in WORK_TYPE_ABBREVIATIONS.keys()]
                     items = [QtGui.QStandardItem(str(value)) for value in row_data]
                     self.table_model.appendRow(items)
                 
@@ -943,7 +882,7 @@ class MainWindow(QMainWindow):
                 # Definir los encabezados fijos
                 fixed_headers = ["Código Serial", "Número Ticket", "Referencia", "Tipo Trabajo", "Color", "Total Producido"]
                 # Generar los encabezados dinámicos para los valores de trabajo
-                valor_headers = [f"Valor {work_type}" for work_type in self.WORK_TYPE_ABBREVIATIONS.keys()]
+                valor_headers = [f"Valor {work_type}" for work_type in WORK_TYPE_ABBREVIATIONS.keys()]
                 # Combinar encabezados fijos y dinámicos
                 self.table_model.setHorizontalHeaderLabels(fixed_headers + valor_headers)
                 self.ui.tableViewVale.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -1029,7 +968,7 @@ class MainWindow(QMainWindow):
         # --- Recolección de Valores (Actualizado) ---
         valores_trabajo = {}
         # Itera sobre los nuevos tipos y sus campos UI mapeados
-        for work_type, field_attr_name in self.CAMPOS_VALOR_TRABAJO_MAP.items():
+        for work_type, field_attr_name in CAMPOS_VALOR_TRABAJO_MAP.items():
             if hasattr(self.ui, field_attr_name):
                 valor_field = getattr(self.ui, field_attr_name)
                 all_fields_to_clear.append(valor_field)
@@ -1053,7 +992,7 @@ class MainWindow(QMainWindow):
         barcode_paths = {} # Este diccionario usará los nombres de trabajo como clave
         
         # Itera sobre el diccionario de abreviaturas actualizado
-        for work_type, abbr in self.WORK_TYPE_ABBREVIATIONS.items():
+        for work_type, abbr in WORK_TYPE_ABBREVIATIONS.items():
             # SOLO genera código si se ingresó un valor para ese tipo de trabajo
             if work_type in valores_trabajo:
                 serial_code = generate_serial_code(ticket_number, referencia, color, tallas_cantidades, abbr)
@@ -1091,7 +1030,7 @@ class MainWindow(QMainWindow):
         pdf_path = generate_vale_pdf(
             ticket_number, referencia, tallas_cantidades, color,
             total_producido_calculado, barcode_paths, valores_trabajo,
-            self.TIPOS_DE_TRABAJO # Pasa el diccionario con los tipos
+            TIPOS_DE_TRABAJO # Pasa el diccionario con los tipos
         )
 
         if not pdf_path:
@@ -1100,7 +1039,7 @@ class MainWindow(QMainWindow):
 
         # Muestra imagen y mensaje (Tu lógica)
         if image_path_for_excel:
-            self.display_code_image(image_path_for_excel)
+            display_code_image(self.ui, image_path_for_excel)
         else:
             if hasattr(self.ui, 'PreviwImage') and self.ui.PreviwImage.scene():
                 self.ui.PreviwImage.scene().clear()
@@ -1492,17 +1431,7 @@ class MainWindow(QMainWindow):
         else:
             print("Botón 'btnAgregarEmpleado' no encontrado en la UI.")
 
-    # Función adicional para validar cédula (opcional)
-    def validate_cedula(self, cedula):
-        """Valida que la cédula tenga formato correcto"""
-        # Remover espacios y guiones
-        cedula_clean = cedula.replace(" ", "").replace("-", "")
-        
-        # Verificar que solo contenga números y tenga longitud apropiada
-        if not cedula_clean.isdigit() or len(cedula_clean) < 6 or len(cedula_clean) > 12:
-            return False
-        
-        return True
+
 
     # Versión mejorada con validación
     def add_employee(self):
@@ -1526,7 +1455,7 @@ class MainWindow(QMainWindow):
                 return
             
             # Validar formato de cédula
-            if not self.validate_cedula(cedula):
+            if not validate_cedula(cedula):
                 QMessageBox.warning(self, "Cédula Inválida", "La cédula debe contener solo números (6-12 dígitos).")
                 self.ui.Cedula_Empleado.setFocus()
                 return

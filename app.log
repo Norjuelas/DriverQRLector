@@ -1,2 +1,10 @@
-2025-05-01 09:57:15,071 - BarcodeApp - INFO - Archivo Excel creado: datos_productos.xlsx
-2025-05-01 10:48:00,648 - BarcodeApp - WARNING - Button 'btnProcesar' not found in UI
+Generando QR (vía generate_barcode) para: 001-CA-CT-3-9961B5
+Generando QR (vía generate_barcode) para: 001-CA-GU-3-ECC09E
+Generando QR (vía generate_barcode) para: 001-CA-MO-3-0C7FEC
+Generando QR (vía generate_barcode) para: 001-CA-EG-3-49D3AF
+Generando QR (vía generate_barcode) para: 001-CA-AE-3-07938C
+Generando QR (vía generate_barcode) para: 001-CA-EN-3-7D6D38
+Generando QR (vía generate_barcode) para: 001-CA-PT-3-0F9FC5
+Generando QR (vía generate_barcode) para: 001-CA-EM-3-55EED0
+
+
