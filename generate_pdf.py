@@ -251,3 +251,166 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# Codigo que lo hace mejor en estructura visual pero no funcional ni con qr
+
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter, landscape
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, KeepTogether
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import KeepTogether, Spacer
+
+import os
+def build_vale(ticket, tipo_display, style, col_width):
+    """
+    Construye el Table (KeepTogether) de un solo “vale” para un tipo de trabajo dado.
+    """
+    # Extraemos los datos del ticket
+    referencia = ticket["referencia"]
+    ticket_number = ticket["ticket_number"]
+    color = ticket["color"]
+    tallas = ticket["tallas_cantidades"]
+    total = ticket["tot"]
+    barcode_path = ticket["barcode_paths"].get(tipo_display, "")
+
+    # --- 1) Encabezado con QR ---
+    # Intentamos cargar la imagen
+    if os.path.exists(barcode_path):
+        qr = Image(barcode_path, width=40, height=40, hAlign="RIGHT")
+    else:
+        qr = Paragraph("(QR no disponible)", style["Normal"])
+
+    encabezado = Table(
+        [[Paragraph(tipo_display, style["Heading2"]), "", qr]],
+        colWidths=[col_width*0.7, col_width*0.05, col_width*0.25]
+    )
+    encabezado.setStyle(TableStyle([
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+        ("BOX", (0,0), (-1,-1), 0.5, colors.green),
+        ("LEFTPADDING", (2,0), (2,0), 3),
+        ("RIGHTPADDING", (2,0), (2,0), 3),
+    ]))
+
+    # --- 2) Detalles (ref, color, N°) ---
+    detalles = Table(
+        [[ "Referencia:", referencia, "Color:", color, f"N° {ticket_number}" ]],
+        colWidths=[col_width*0.15, col_width*0.35, col_width*0.15, col_width*0.15, col_width*0.2]
+    )
+    detalles.setStyle(TableStyle([
+        ("BOX", (0,0), (-1,-1), 0.5, colors.green),
+        ("FONTNAME", (0,0), (-1,-1), "Helvetica-Bold"),
+        ("FONTSIZE", (0,0), (-1,-1), 6),
+        ("LEFTPADDING", (0,0), (-1,-1), 2),
+        ("RIGHTPADDING",(0,0), (-1,-1), 2),
+    ]))
+
+    # --- 3) Tallaje ---
+    sizes = list(range(33, 46))
+    fila_tallas = [str(s) for s in sizes]
+    fila_cant  = [ str(tallas.get(str(s), 0)) for s in sizes ]
+    tallas_tbl = Table([fila_tallas, fila_cant], colWidths=[col_width/len(sizes)]*len(sizes))
+    tallas_tbl.setStyle(TableStyle([
+        ("GRID", (0,0), (-1,-1), 0.5, colors.green),
+        ("ALIGN", (0,0), (-1,-1), "CENTER"),
+        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+        ("FONTSIZE", (0,0), (-1,-1), 6),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 2),
+    ]))
+
+    # --- 4) Pie (firma + total) ---
+    pie = Table(
+        [[ "Firma:", "____________________", "Total:", f"{total}" ]],
+        colWidths=[col_width*0.15, col_width*0.45, col_width*0.15, col_width*0.25]
+    )
+    pie.setStyle(TableStyle([
+        ("BOX", (0,0), (-1,-1), 0.5, colors.green),
+        ("FONTNAME", (0,0), (-1,-1), "Helvetica-Bold"),
+        ("FONTSIZE", (0,0), (-1,-1), 6),
+        ("LEFTPADDING", (0,0), (-1,-1), 2),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 2),
+    ]))
+
+    # Agrupamos todo
+    data = [
+      [ encabezado ],
+      [ detalles  ],
+      [ tallas_tbl],
+      [ pie       ],
+    ]
+    # asegúrate de que cada sub‑tabla tenga ancho <= col_width
+    return Table(data, colWidths=[col_width], hAlign="LEFT") 
+
+def generate_dual_vale_pdf(left_ticket, right_ticket, tipos_de_trabajo, output_path):
+    doc = SimpleDocTemplate(
+        output_path,
+        pagesize=landscape(letter),
+        leftMargin=20, rightMargin=20, topMargin=20, bottomMargin=20
+    )
+    styles = getSampleStyleSheet()
+    styles["Heading2"].fontSize = 7
+    styles["Normal"].fontSize  = 6
+
+    page_w, _ = landscape(letter)
+    gutter = 10
+    col_w = (page_w - doc.leftMargin - doc.rightMargin - gutter) / 2
+
+    elements = []
+    for tipo in tipos_de_trabajo.values():
+        left_tbl  = build_vale(left_ticket,  tipo, styles, col_w)
+        right_tbl = build_vale(right_ticket, tipo, styles, col_w)
+
+        # Una tabla 1×2 que contiene ambos vales
+        pair = Table([[ left_tbl, right_tbl ]],
+                     colWidths=[col_w, col_w], hAlign="LEFT")
+        pair.setStyle(TableStyle([
+            ("VALIGN", (0,0), (-1,-1), "TOP"),
+        ]))
+
+        elements.append(pair)
+        elements.append(Spacer(1, 12))  # separación vertical
+    doc.build(elements)
+    print(f"PDF generado en: {output_path}")
+
+if __name__ == "__main__":
+    # 1) DEFINO PRIMERO los tipos de trabajo
+    tipos_de_trabajo = {
+        "PL": "Plantillas TERRY",
+        "EM": "Empaque",
+        "EN": "Ensuelado",
+        "RS": "Raspado suelas",
+        "AU": "Alojar-untar suelas",
+        "QA": "Quemar-recortar-armar",
+        "MO": "Montar",
+        "EG": "Engrudar",
+        "GU": "Guarnicion",
+        "CO": "Corte"
+    }
+
+    # 2) Datos de ejemplo para cada “ticket”
+    left = {
+        "ticket_number": "699",
+        "referencia": "TENIS",
+        "color": "BLANCO",
+        "tallas_cantidades": { str(s): 2 for s in range(33,46) },
+        "tot": 2,
+        "barcode_paths": {
+            tipo: f"codes/qr_{tipo}_699.png"
+            for tipo in tipos_de_trabajo.values()
+        }
+    }
+    right = {
+        "ticket_number": "700",
+        "referencia": "DAMA CUERO",
+        "color": "NEGRO",
+        "tallas_cantidades": { str(s): 10 for s in range(33,46) },
+        "tot": 10,
+        "barcode_paths": {
+            tipo: f"codes/qr_{tipo}_700.png"
+            for tipo in tipos_de_trabajo.values()
+        }
+    }
+
+    # 3) Llamo a la función que genera el PDF dual
+    output = "vales_comparativos.pdf"
+    generate_dual_vale_pdf(left, right, tipos_de_trabajo, output)
+    print(f"PDF generado en: {output}")

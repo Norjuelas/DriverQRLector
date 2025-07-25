@@ -536,7 +536,7 @@ QToolTip {
     <string notr="true">background: transparent;
 color: rgb(210, 210, 210);</string>
    </property>
-   <layout class="QHBoxLayout" name="horizontalLayout">
+   <layout class="QVBoxLayout" name="verticalLayout_8">
     <property name="spacing">
      <number>0</number>
     </property>
@@ -977,29 +977,6 @@ QPushButton:pressed {
                     <number>0</number>
                    </property>
                    <item>
-                    <widget class="QFrame" name="frame_icon_top_bar">
-                     <property name="maximumSize">
-                      <size>
-                       <width>30</width>
-                       <height>30</height>
-                      </size>
-                     </property>
-                     <property name="styleSheet">
-                      <string notr="true">background: transparent;
-background-image: url(:/16x16/icons/16x16/cil-terminal.png);
-background-position: center;
-background-repeat: no-repeat;
-</string>
-                     </property>
-                     <property name="frameShape">
-                      <enum>QFrame::StyledPanel</enum>
-                     </property>
-                     <property name="frameShadow">
-                      <enum>QFrame::Raised</enum>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
                     <widget class="QLabel" name="label_title_bar_top">
                      <property name="font">
                       <font>
@@ -1014,7 +991,7 @@ background-repeat: no-repeat;
 </string>
                      </property>
                      <property name="text">
-                      <string>Creacion de Tareas</string>
+                      <string>Gestor de Vales</string>
                      </property>
                     </widget>
                    </item>
@@ -1096,28 +1073,7 @@ background-repeat: no-repeat;
                 <property name="bottomMargin">
                  <number>0</number>
                 </property>
-                <item>
-                 <widget class="QLabel" name="label_top_info_1">
-                  <property name="maximumSize">
-                   <size>
-                    <width>16777215</width>
-                    <height>15</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <family>Segoe UI</family>
-                   </font>
-                  </property>
-                  <property name="styleSheet">
-                   <string notr="true">color: rgb(98, 103, 111); </string>
-                  </property>
-                  <property name="text">
-                   <string>Gestion de Tareas</string>
-                  </property>
-                 </widget>
-                </item>
-                <item>
+                <item alignment="Qt::AlignHCenter">
                  <widget class="QLabel" name="label_top_info_2">
                   <property name="minimumSize">
                    <size>
@@ -1142,7 +1098,7 @@ background-repeat: no-repeat;
                    <string notr="true">color: rgb(98, 103, 111);</string>
                   </property>
                   <property name="text">
-                   <string>| HOME</string>
+                   <string>Industrias Thimoty</string>
                   </property>
                   <property name="alignment">
                    <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -1337,10 +1293,7 @@ background-repeat: no-repeat;
                <property name="frameShadow">
                 <enum>QFrame::Raised</enum>
                </property>
-               <layout class="QVBoxLayout" name="verticalLayout_9">
-                <property name="spacing">
-                 <number>0</number>
-                </property>
+               <layout class="QGridLayout" name="gridLayout_4">
                 <property name="leftMargin">
                  <number>5</number>
                 </property>
@@ -1353,23 +1306,20 @@ background-repeat: no-repeat;
                 <property name="bottomMargin">
                  <number>5</number>
                 </property>
-                <item>
+                <item row="0" column="0">
                  <widget class="QStackedWidget" name="stackedWidget">
                   <property name="styleSheet">
                    <string notr="true">background: transparent;</string>
                   </property>
                   <property name="currentIndex">
-                   <number>2</number>
+                   <number>0</number>
                   </property>
                   <widget class="QWidget" name="page_home">
                    <layout class="QVBoxLayout" name="verticalLayout_10">
                     <item>
                      <layout class="QGridLayout" name="gridLayout_2">
-                      <item row="1" column="1">
-                       <widget class="QComboBox" name="EmpleadosBox"/>
-                      </item>
                       <item row="0" column="0" colspan="2">
-                       <widget class="QLabel" name="label_6">
+                       <widget class="QLabel" name="label_Lecturadecodigodebarras">
                         <property name="font">
                          <font>
                           <family>Segoe UI</family>
@@ -1380,10 +1330,20 @@ background-repeat: no-repeat;
                          <string notr="true"/>
                         </property>
                         <property name="text">
-                         <string>Lectura de codigos de Barras</string>
+                         <string>Lectura de Tickets</string>
                         </property>
                         <property name="alignment">
                          <set>Qt::AlignCenter</set>
+                        </property>
+                       </widget>
+                      </item>
+                      <item row="1" column="1">
+                       <widget class="QComboBox" name="EmpleadosBox"/>
+                      </item>
+                      <item row="2" column="0">
+                       <widget class="QLabel" name="label_3">
+                        <property name="text">
+                         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-size:12pt; font-weight:600;&quot;&gt;Ingresar Codigo&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                         </property>
                        </widget>
                       </item>
@@ -1406,20 +1366,36 @@ background-repeat: no-repeat;
                         </property>
                        </widget>
                       </item>
-                      <item row="2" column="0">
-                       <widget class="QLabel" name="label_3">
-                        <property name="text">
-                         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-size:12pt; font-weight:600;&quot;&gt;Ingresar Codigo&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-                        </property>
-                       </widget>
-                      </item>
                       <item row="2" column="1">
                        <widget class="QLineEdit" name="codeReaderInput"/>
                       </item>
                      </layout>
                     </item>
                     <item>
-                     <widget class="QWidget" name="WidgetTabla" native="true"/>
+                     <widget class="QWidget" name="WidgetTabla" native="true">
+                      <layout class="QHBoxLayout" name="horizontalLayout">
+                       <item>
+                        <widget class="QWidget" name="TicketsEntrada" native="true">
+                         <property name="maximumSize">
+                          <size>
+                           <width>491</width>
+                           <height>311</height>
+                          </size>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QWidget" name="TicketsSalida" native="true">
+                         <property name="maximumSize">
+                          <size>
+                           <width>491</width>
+                           <height>311</height>
+                          </size>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </widget>
                     </item>
                     <item>
                      <widget class="QPushButton" name="btnRegisterVale">
@@ -1451,7 +1427,7 @@ QPushButton:pressed {
 }</string>
                       </property>
                       <property name="text">
-                       <string>Limpiar Vista Previa</string>
+                       <string>Limpiar Vista</string>
                       </property>
                       <property name="icon">
                        <iconset resource="files.qrc">
@@ -1535,6 +1511,41 @@ QPushButton:pressed {
                         <normaloff>:/16x16/icons/16x16/cil-folder-open.png</normaloff>:/16x16/icons/16x16/cil-folder-open.png</iconset>
                       </property>
                      </widget>
+                    </item>
+                   </layout>
+                  </widget>
+                  <widget class="QWidget" name="Consolidado">
+                   <layout class="QVBoxLayout" name="verticalLayout_9">
+                    <item>
+                     <widget class="QWidget" name="widget" native="true">
+                      <layout class="QVBoxLayout" name="verticalLayout_12">
+                       <item>
+                        <widget class="QLabel" name="label_Lecturadecodigodebarras_2">
+                         <property name="font">
+                          <font>
+                           <family>Segoe UI</family>
+                           <pointsize>40</pointsize>
+                          </font>
+                         </property>
+                         <property name="styleSheet">
+                          <string notr="true"/>
+                         </property>
+                         <property name="text">
+                          <string>Consolidado de pagos</string>
+                         </property>
+                         <property name="alignment">
+                          <set>Qt::AlignCenter</set>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QWidget" name="widget_3" native="true"/>
+                       </item>
+                      </layout>
+                     </widget>
+                    </item>
+                    <item>
+                     <widget class="QWidget" name="widget_2" native="true"/>
                     </item>
                    </layout>
                   </widget>
@@ -2139,6 +2150,25 @@ QPushButton:pressed {
                        <enum>QFrame::Raised</enum>
                       </property>
                       <layout class="QVBoxLayout" name="verticalLayout_6">
+                       <item>
+                        <widget class="QLabel" name="label_6">
+                         <property name="font">
+                          <font>
+                           <family>Segoe UI</family>
+                           <pointsize>40</pointsize>
+                          </font>
+                         </property>
+                         <property name="styleSheet">
+                          <string notr="true"/>
+                         </property>
+                         <property name="text">
+                          <string>Creacion de Vales</string>
+                         </property>
+                         <property name="alignment">
+                          <set>Qt::AlignCenter</set>
+                         </property>
+                        </widget>
+                       </item>
                        <item>
                         <widget class="QFrame" name="frame_div_content_4">
                          <property name="minimumSize">
@@ -2759,7 +2789,7 @@ QLineEdit:focus {
                      </widget>
                     </item>
                     <item row="1" column="0">
-                     <widget class="QFrame" name="frame_3">
+                     <widget class="QFrame" name="frame_inferior">
                       <property name="minimumSize">
                        <size>
                         <width>0</width>
@@ -2774,7 +2804,7 @@ QLineEdit:focus {
                       </property>
                       <layout class="QHBoxLayout" name="horizontalLayout_9">
                        <item>
-                        <widget class="QFrame" name="frame">
+                        <widget class="QFrame" name="CuadroCamposTicketColorNombreop">
                          <property name="styleSheet">
                           <string notr="true">border-radius: 5px;</string>
                          </property>
@@ -2785,6 +2815,119 @@ QLineEdit:focus {
                           <enum>QFrame::Raised</enum>
                          </property>
                          <layout class="QVBoxLayout" name="verticalLayout_7">
+                          <item>
+                           <widget class="QFrame" name="frame_div_content_9">
+                            <property name="minimumSize">
+                             <size>
+                              <width>0</width>
+                              <height>110</height>
+                             </size>
+                            </property>
+                            <property name="maximumSize">
+                             <size>
+                              <width>441</width>
+                              <height>110</height>
+                             </size>
+                            </property>
+                            <property name="styleSheet">
+                             <string notr="true">background-color: rgb(41, 45, 56);
+border-radius: 5px;
+</string>
+                            </property>
+                            <property name="frameShape">
+                             <enum>QFrame::NoFrame</enum>
+                            </property>
+                            <property name="frameShadow">
+                             <enum>QFrame::Raised</enum>
+                            </property>
+                            <layout class="QVBoxLayout" name="verticalLayout_43">
+                             <property name="spacing">
+                              <number>0</number>
+                             </property>
+                             <property name="leftMargin">
+                              <number>0</number>
+                             </property>
+                             <property name="topMargin">
+                              <number>0</number>
+                             </property>
+                             <property name="rightMargin">
+                              <number>0</number>
+                             </property>
+                             <property name="bottomMargin">
+                              <number>0</number>
+                             </property>
+                             <item>
+                              <widget class="QFrame" name="frame_title_wid_9">
+                               <property name="maximumSize">
+                                <size>
+                                 <width>16777215</width>
+                                 <height>35</height>
+                                </size>
+                               </property>
+                               <property name="styleSheet">
+                                <string notr="true">background-color: rgb(39, 44, 54);</string>
+                               </property>
+                               <property name="frameShape">
+                                <enum>QFrame::StyledPanel</enum>
+                               </property>
+                               <property name="frameShadow">
+                                <enum>QFrame::Raised</enum>
+                               </property>
+                               <layout class="QVBoxLayout" name="verticalLayout_48">
+                                <item>
+                                 <widget class="QLabel" name="labelBoxBlenderInstalation_22">
+                                  <property name="font">
+                                   <font>
+                                    <family>Segoe UI</family>
+                                    <pointsize>10</pointsize>
+                                    <weight>75</weight>
+                                    <bold>true</bold>
+                                   </font>
+                                  </property>
+                                  <property name="styleSheet">
+                                   <string notr="true"/>
+                                  </property>
+                                  <property name="text">
+                                   <string>Color</string>
+                                  </property>
+                                 </widget>
+                                </item>
+                               </layout>
+                              </widget>
+                             </item>
+                             <item>
+                              <widget class="QLineEdit" name="CampoColor">
+                               <property name="minimumSize">
+                                <size>
+                                 <width>0</width>
+                                 <height>30</height>
+                                </size>
+                               </property>
+                               <property name="styleSheet">
+                                <string notr="true">QLineEdit {
+	background-color: rgb(27, 29, 35);
+	border-radius: 5px;
+	border: 2px solid rgb(27, 29, 35);
+	padding-left: 10px;
+}
+QLineEdit:hover {
+	border: 2px solid rgb(64, 71, 88);
+}
+QLineEdit:focus {
+	border: 2px solid rgb(91, 101, 124);
+}</string>
+                               </property>
+                               <property name="text">
+                                <string/>
+                               </property>
+                               <property name="placeholderText">
+                                <string>Color</string>
+                               </property>
+                              </widget>
+                             </item>
+                            </layout>
+                           </widget>
+                          </item>
                           <item>
                            <widget class="QFrame" name="frame_div_content_8">
                             <property name="minimumSize">
@@ -2971,7 +3114,7 @@ border-radius: 5px;
                                    <string notr="true"/>
                                   </property>
                                   <property name="text">
-                                   <string>Color</string>
+                                   <string>Nombre Satelite o Empleado (Opcional)</string>
                                   </property>
                                  </widget>
                                 </item>
@@ -2979,7 +3122,7 @@ border-radius: 5px;
                               </widget>
                              </item>
                              <item>
-                              <widget class="QLineEdit" name="CampoColor">
+                              <widget class="QLineEdit" name="CampoNombreResponsable">
                                <property name="minimumSize">
                                 <size>
                                  <width>0</width>
@@ -3024,8 +3167,8 @@ QLineEdit:focus {
                            <rect>
                             <x>0</x>
                             <y>0</y>
-                            <width>303</width>
-                            <height>423</height>
+                            <width>288</width>
+                            <height>383</height>
                            </rect>
                           </property>
                           <layout class="QFormLayout" name="formLayout">
@@ -3488,7 +3631,7 @@ QPushButton:pressed {
 }</string>
                       </property>
                       <property name="text">
-                       <string>Guardar tarea</string>
+                       <string>Guardar Vale</string>
                       </property>
                       <property name="icon">
                        <iconset resource="files.qrc">
@@ -3578,30 +3721,6 @@ QPushButton:pressed {
                      </property>
                      <property name="text">
                       <string/>
-                     </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QLabel" name="label_version">
-                     <property name="maximumSize">
-                      <size>
-                       <width>100</width>
-                       <height>16777215</height>
-                      </size>
-                     </property>
-                     <property name="font">
-                      <font>
-                       <family>Segoe UI</family>
-                      </font>
-                     </property>
-                     <property name="styleSheet">
-                      <string notr="true">color: rgb(98, 103, 111);</string>
-                     </property>
-                     <property name="text">
-                      <string>v1.0.0</string>
-                     </property>
-                     <property name="alignment">
-                      <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
                      </property>
                     </widget>
                    </item>
