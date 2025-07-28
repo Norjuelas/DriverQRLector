@@ -1,3 +1,5 @@
+#usamos python 3.10
+
 altgraph==0.17.4
 cabarchive==0.2.4
 chardet==5.2.0

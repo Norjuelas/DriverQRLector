@@ -7,8 +7,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1062</width>
-    <height>869</height>
+    <width>1000</width>
+    <height>748</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -3167,7 +3167,7 @@ QLineEdit:focus {
                            <rect>
                             <x>0</x>
                             <y>0</y>
-                            <width>288</width>
+                            <width>276</width>
                             <height>383</height>
                            </rect>
                           </property>
