@@ -5,6 +5,7 @@ import uuid
 import traceback
 import datetime as dt
 import time
+import pandas as pd
 
 from openpyxl import Workbook, load_workbook
 
@@ -23,7 +24,6 @@ from openpyxl.styles import Font, PatternFill, Alignment
 from PySide2.QtWidgets import QTableView, QVBoxLayout
 from PySide2.QtGui import QStandardItemModel
 
-# Imports 
 from generate_pdf import generate_vale_pdf
 
 from utils import validate_cedula, display_code_image
@@ -31,8 +31,20 @@ from utils import validate_cedula, display_code_image
 from config import TIPOS_DE_TRABAJO, WORK_TYPE_ABBREVIATIONS, CAMPOS_VALOR_TRABAJO_MAP    
 # GUI FILE
 from app_modules import *
+from vales_card import ValeCard, DropColumnWidget
 
+from PySide2.QtWidgets import QWidget, QVBoxLayout, QLabel, QTreeWidget, QTreeWidgetItem, QHeaderView
+from PySide2.QtCore import Qt
 
+DATOS_VALES = [
+    {"ticket": "T001", "referencia": "REF-A", "color": "Rojo", "total": 100, "estado": "impreso", "Satelite": False},
+    {"ticket": "T002", "referencia": "REF-B", "color": "Azul", "total": 150, "estado": "impreso", "Satelite": True},
+    {"ticket": "T003", "referencia": "REF-C", "color": "Verde", "total": 200, "estado": "salido", "Satelite": True},
+    {"ticket": "T004", "referencia": "REF-D", "color": "Negro", "total": 50, "estado": "entro", "Satelite": True},
+    {"ticket": "T005", "referencia": "REF-E", "color": "Blanco", "total": 300, "estado": "pagado", "Satelite": False},
+    {"ticket": "T006", "referencia": "REF-F", "color": "Amarillo", "total": 120, "estado": "pagado", "Satelite": True},
+    {"ticket": "T007", "referencia": "REF-G", "color": "Gris", "total": 90, "estado": "impreso", "Satelite": False},
+]
 class MainWindow(QMainWindow):
     def __init__(self):
         QMainWindow.__init__(self)
@@ -72,9 +84,13 @@ class MainWindow(QMainWindow):
         self.setup_add_employee_button()
 
         self.autocompletado_manager = AutocompletadoManager(excel_path=self.excel_path, sheet_name="Trabajos")
-        self.setup_autocompletado_fields()
+        self.datos_vales = DATOS_VALES # O cárgalos desde tu Excel aquí
 
-        # Show the window
+        self.setup_autocompletado_fields()
+        self.setup_kanban_board()
+        self.actualizar_dashboard_pagos()
+        #self.ui.btnRefrescarPagos.clicked.connect(self.actualizar_dashboard_pagos)
+        # Show t    he window
         self.show()
 
 
@@ -373,6 +389,335 @@ class MainWindow(QMainWindow):
         else:
             print("No se encontraron campos para configurar el autocompletado.")
 
+
+# -----------------------------------------------------------------------
+    def setup_kanban_board(self):
+        """
+        Configura las columnas de la UI como zonas de destino para el Drag & Drop.
+        """
+        # 1. Crear las instancias de nuestras columnas lógicas
+        self.col_impresos_empleados = DropColumnWidget("impreso")
+        self.col_impresos_satelite = DropColumnWidget("impreso")
+        self.col_salidos = DropColumnWidget("salido")
+        self.col_entraron = DropColumnWidget("entro")
+        self.col_pagos = DropColumnWidget("pagado")
+        # Para la columna de "Impresos > Empleados"
+        layout_impresos_emp = QVBoxLayout(self.ui.widget_impresos_empleado_container)
+        layout_impresos_emp.addWidget(self.col_impresos_empleados)
+
+        # Para la columna de "Impresos > Satélite"
+        layout_impresos_sat = QVBoxLayout(self.ui.widget_impresos_satelite_container)
+        layout_impresos_sat.addWidget(self.col_impresos_satelite)
+        
+        # Para la columna de "Salidos"
+        layout_salidos = QVBoxLayout(self.ui.Vales_salidos)
+        layout_salidos.addWidget(self.col_salidos)
+
+        # Para la columna de "Entraron"
+        layout_entraron = QVBoxLayout(self.ui.Vales_entraron)
+        layout_entraron.addWidget(self.col_entraron)
+
+        # Para la columna de "Pagados"
+        layout_pagos = QVBoxLayout(self.ui.Vales_pagos)
+        layout_pagos.addWidget(self.col_pagos)
+        
+        # 3. Conectar las señales de drop al manejador
+        self.col_impresos_empleados.card_dropped.connect(self.handle_card_drop)
+        self.col_impresos_satelite.card_dropped.connect(self.handle_card_drop)
+        self.col_salidos.card_dropped.connect(self.handle_card_drop)
+        self.col_entraron.card_dropped.connect(self.handle_card_drop)
+        self.col_pagos.card_dropped.connect(self.handle_card_drop)
+
+        # 4. Poblar el tablero por primera vez
+        self.update_kanban_view()
+
+    def handle_card_drop(self, ticket_id, nuevo_estado):
+        """
+        Maneja la lógica de actualizar el estado de un vale cuando se suelta.
+        """
+        vale_a_mover = next((vale for vale in self.datos_vales if vale["ticket"] == ticket_id), None)
+        
+        if vale_a_mover:
+            es_satelite = vale_a_mover.get("Satelite", False)
+            if nuevo_estado in ["salido", "entro"] and not es_satelite:
+                print(f"Movimiento no permitido: El vale {ticket_id} (Empleado) no puede ir a '{nuevo_estado}'.")
+                return # El movimiento se cancela
+
+            vale_a_mover["estado"] = nuevo_estado
+            print(f"Ticket {ticket_id} actualizado al estado '{nuevo_estado}'")
+            self.update_kanban_view() # Redibuja todo el tablero
+
+    def clear_kanban_board(self):
+        """Limpia todas las tarjetas de todas las columnas."""
+        self.col_impresos_empleados.clear()
+        self.col_impresos_satelite.clear()
+        self.col_salidos.clear()
+        self.col_entraron.clear()
+        self.col_pagos.clear()
+
+    def update_kanban_view(self):
+        """Limpia el tablero y lo vuelve a poblar con los datos de self.datos_vales."""
+        self.clear_kanban_board()
+
+        for vale in self.datos_vales:
+            card = ValeCard(vale)
+            estado = vale.get("estado", "").lower()
+            es_satelite = vale.get("Satelite", False)
+
+            if estado == "impreso":
+                if es_satelite:
+                    self.col_impresos_satelite.add_card(card)
+                else:
+                    self.col_impresos_empleados.add_card(card)
+            elif estado == "salido":
+                self.col_salidos.add_card(card)
+            elif estado == "entro":
+                self.col_entraron.add_card(card)
+            elif estado == "pagado":
+                self.col_pagos.add_card(card)
+    def create_impresos_column(self):
+        """ Crea la columna especial "Vales Impresos" con sus dos subgrupos. """
+        container = QGroupBox("Vales Impresos")
+        self.apply_groupbox_style(container)
+        
+        layout = QVBoxLayout(container)
+        
+        # Subgrupo Empleados
+        group_empleados = QGroupBox("Empleados")
+        layout_empleados = QVBoxLayout(group_empleados)
+        layout_empleados.addWidget(self.create_scroll_area(self.col_impresos_empleados))
+        layout.addWidget(group_empleados)
+        
+        # Subgrupo Satélite
+        group_satelite = QGroupBox("Satélite")
+        layout_satelite = QVBoxLayout(group_satelite)
+        layout_satelite.addWidget(self.create_scroll_area(self.col_impresos_satelite))
+        layout.addWidget(group_satelite)
+        
+        return container
+
+    def create_scrollable_column(self, title, content_widget):
+        """Crea una columna genérica con título y área de scroll."""
+        column_container = QGroupBox(title)
+        self.apply_groupbox_style(column_container)
+        main_vbox = QVBoxLayout(column_container)
+        main_vbox.addWidget(self.create_scroll_area(content_widget))
+        return column_container
+
+    def create_scroll_area(self, content_widget):
+        """Crea un QScrollArea para un widget de contenido."""
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(content_widget)
+        scroll.setStyleSheet("QScrollArea { border: none; background-color: transparent; }")
+        return scroll
+
+    def apply_groupbox_style(self, groupbox):
+        """Aplica un estilo consistente a los QGroupBox de las columnas."""
+        groupbox.setStyleSheet("""
+            QGroupBox {
+                font-size: 16px; font-weight: bold; background-color: #F5F5F5;
+                border: 1px solid #D0D0D0; border-radius: 8px; margin-top: 1ex;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin; subcontrol-position: top center; padding: 0 10px;
+            }
+        """)
+
+    def handle_card_drop(self, ticket_id, nuevo_estado):
+        """
+        Esta es la función principal que actualiza los datos cuando una tarjeta se mueve.
+        """
+        print(f"Moviendo ticket {ticket_id} al estado '{nuevo_estado}'")
+        
+        # 1. Encontrar el vale en nuestra lista de datos
+        vale_a_mover = None
+        for vale in DATOS_VALES:
+            if vale["ticket"] == ticket_id:
+                vale_a_mover = vale
+                break
+        
+        if vale_a_mover:
+            # 2. Validar si el movimiento es permitido
+            es_satelite = vale_a_mover.get("Satelite", False)
+            if nuevo_estado in ["salido", "entro"] and not es_satelite:
+                print(f"Movimiento no permitido: El vale {ticket_id} es de Empleado y no puede ir a '{nuevo_estado}'.")
+                # No hacemos nada y el tablero no se actualizará, la tarjeta volverá a su sitio.
+                return
+
+            # 3. Actualizar el estado en la lista de datos
+            vale_a_mover["estado"] = nuevo_estado
+            
+            # 4. Volver a dibujar todo el tablero con los datos actualizados
+            self.update_kanban_view(DATOS_VALES)
+
+    def clear_kanban_board(self):
+        """Limpia todas las tarjetas de todas las columnas."""
+        self.col_impresos_empleados.clear()
+        self.col_impresos_satelite.clear()
+        self.col_salidos.clear()
+        self.col_entraron.clear()
+        self.col_pagos.clear()
+
+    def update_kanban_view(self):
+        """Limpia el tablero y lo vuelve a poblar con los datos actualizados."""
+        self.clear_kanban_board()
+
+        for vale in self.datos_vales:
+            card = ValeCard(vale)
+            
+            estado = vale.get("estado", "").lower()
+            es_satelite = vale.get("Satelite", False)
+
+            if estado == "impreso":
+                if es_satelite:
+                    self.col_impresos_satelite.add_card(card)
+                else:
+                    self.col_impresos_empleados.add_card(card)
+            elif estado == "salido":
+                self.col_salidos.add_card(card)
+            elif estado == "entro":
+                self.col_entraron.add_card(card)
+            elif estado == "pagado":
+                self.col_pagos.add_card(card)
+
+#--------------------------------------------------------------------------- 
+
+
+#--------------------------------------------------------------------------- 
+# Asegúrate de tener esta importación al inicio de tu archivo
+
+    def actualizar_dashboard_pagos(self):
+        """
+        Calcula y muestra los consolidados de pagos para empleados y satélites.
+        """
+        print("Actualizando dashboard de pagos...")
+        datos_de_prueba = [
+        {'ticket': 'T101', 'referencia': 'REF-A', 'total': 150, 'estado': 'pagado', 'Satelite': False, 'responsable': 'Ana Gomez'},
+        {'ticket': 'T102', 'referencia': 'REF-A', 'total': 50, 'estado': 'pagado', 'Satelite': False, 'responsable': 'Ana Gomez'},
+        {'ticket': 'T103', 'referencia': 'REF-B', 'total': 200, 'estado': 'pagado', 'Satelite': False, 'responsable': 'Carlos Diaz'},
+        {'ticket': 'T201', 'referencia': 'REF-C', 'total': 500, 'estado': 'pagado', 'Satelite': True, 'responsable': 'Taller Externo 1'},
+        {'ticket': 'T202', 'referencia': 'REF-C', 'total': 450, 'estado': 'pagado', 'Satelite': True, 'responsable': 'Taller Externo 1'},
+        {'ticket': 'T301', 'referencia': 'REF-D', 'total': 100, 'estado': 'impreso', 'Satelite': False, 'responsable': 'Ana Gomez'},
+    ]
+        # 1. PREPARACIÓN DE DATOS CON PANDAS
+        # ------------------------------------
+        if not self.datos_vales:
+            print("No hay datos de vales para procesar.")
+            return
+
+        # Convertir la lista de diccionarios a un DataFrame de Pandas
+        df = pd.DataFrame(datos_de_prueba)
+        # Filtrar solo los vales que han sido pagados
+        pagos_df = df[df['estado'].str.lower() == 'pagado'].copy()
+        
+        if pagos_df.empty:
+            print("No se encontraron vales pagados.")
+            # Aquí podrías limpiar los widgets si lo deseas
+            return
+
+        # Convertir 'total' a numérico, manejando errores
+        pagos_df['total'] = pd.to_numeric(pagos_df['total'], errors='coerce').fillna(0)
+
+        # Separar dataframes para empleados y satélites
+        pagos_empleados_df = pagos_df[pagos_df['Satelite'] == False]
+        pagos_satelites_df = pagos_df[pagos_df['Satelite'] == True]
+
+        # 2. POBLAR DASHBOARDS DE RESUMEN (Widget_Pagos_*)
+        # -----------------------------------------------
+        self._crear_panel_resumen(
+            parent_widget=self.ui.Widget_Pagos_empleados,
+            df_datos=pagos_empleados_df,
+            titulo="Consolidado Empleados"
+        )
+        self._crear_panel_resumen(
+            parent_widget=self.ui.Widget_Pagos_Satelites,
+            df_datos=pagos_satelites_df,
+            titulo="Consolidado Satélites"
+        )
+
+        # 3. POBLAR VISTAS DETALLADAS (scrollAreaWidget_Pagos_*)
+        # -----------------------------------------------------
+        self._poblar_arbol_pagos(
+            scroll_area=self.ui.scrollAreaWidget_Pagos_empleados,
+            df_datos=pagos_empleados_df
+        )
+        self._poblar_arbol_pagos(
+            scroll_area=self.ui.scrollAreaWidget_Pagos_Satelites,
+            df_datos=pagos_satelites_df
+        )
+
+    def _crear_panel_resumen(self, parent_widget, df_datos, titulo):
+        """
+        Función auxiliar para crear los widgets del dashboard de resumen.
+        """
+        # Limpiar widget anterior
+        for i in reversed(range(parent_widget.layout().count())): 
+            parent_widget.layout().itemAt(i).widget().setParent(None)
+
+        # Cálculos
+        total_pagado = df_datos['total'].sum()
+        cantidad_tickets = len(df_datos)
+        # ⚠️ ADAPTAR 'responsable' si tu clave se llama diferente
+        responsables_unicos = df_datos['responsable'].nunique()
+
+        # Crear etiquetas y añadirlas al layout
+        layout = parent_widget.layout()
+        
+        titulo_label = QLabel(f"<b>{titulo}</b>")
+        titulo_label.setStyleSheet("font-size: 16px; margin-bottom: 10px;")
+        
+        total_label = QLabel(f"<b>Total Pagado:</b> ${total_pagado:,.0f}")
+        tickets_label = QLabel(f"<b>Tickets Pagados:</b> {cantidad_tickets}")
+        responsables_label = QLabel(f"<b>Total Empleados/Satélites:</b> {responsables_unicos}")
+
+        layout.addWidget(titulo_label)
+        layout.addWidget(total_label)
+        layout.addWidget(tickets_label)
+        layout.addWidget(responsables_label)
+        layout.addStretch() # Empuja todo hacia arriba
+
+    def _poblar_arbol_pagos(self, scroll_area, df_datos):
+        """
+        Función auxiliar para crear y poblar el QTreeWidget con datos agrupados.
+        """
+        if df_datos.empty:
+            if scroll_area.widget():
+                scroll_area.widget().clear()
+            return
+            
+        datos_agrupados = df_datos.groupby(['responsable', 'referencia'])['total'].agg(['sum', 'count'])
+
+        tree = QTreeWidget()
+        tree.setHeaderLabels(["Responsable / Referencia", "Total Pagado", "Nº Tickets"])
+        tree.header().setSectionResizeMode(0, QHeaderView.Stretch)
+
+        responsable_actual = ""
+        parent_item = None
+
+        for (responsable, referencia), group in datos_agrupados.iterrows():
+            if responsable != responsable_actual:
+                responsable_actual = responsable
+                parent_item = QTreeWidgetItem(tree, [responsable])
+                
+                # --- LÍNEA CORREGIDA ---
+                # En lugar de setStyleSheet, modificamos la fuente del ítem
+                font = parent_item.font(0)
+                font.setBold(True)
+                parent_item.setFont(0, font)
+                # ----------------------
+
+            child_item = QTreeWidgetItem(parent_item, [
+                f"    └─ {referencia}", 
+                f"${group['sum']:,.0f}", 
+                str(group['count'])
+            ])
+
+        tree.expandAll()
+        
+        scroll_area.setWidget(tree)
+        scroll_area.setWidgetResizable(True)
+#--------------------------------------------------------------------------- 
 
 
     def update_employee_reports(self):
@@ -908,84 +1253,123 @@ class MainWindow(QMainWindow):
             print(f"Error inesperado durante setup_employee_management: {e}")
             traceback.print_exc()
 
-    def on_save_button_clicked(self):
-
-        """Handler for save button click
-        (Actualizado para usar los nuevos tipos de trabajo y campos UI)
+    def _collect_ticket_data(self, suffix="", ticket_label="A"):
         """
-        required_core_fields = []
-        all_fields_to_clear = []
+        Función auxiliar para recolectar y validar los datos de un tiquete.
+        Reutiliza la lógica para el tiquete A (suffix="") y B (suffix="_2").
+        Retorna un diccionario con los datos o None si hay un error.
+        """
+        ui = self.ui
+        fields_to_clear = []
+        
+        # 1. Recolectar campos básicos
+        try:
+            referencia_field = getattr(ui, f"CampoReferenciaTrabajo{suffix}")
+            ticket_field = getattr(ui, f"CampoNumeroTicket{suffix}")
+            color_field = getattr(ui, f"CampoColor{suffix}")
+        except AttributeError as e:
+            QMessageBox.critical(self, "Error de UI", f"No se encontró un campo esperado: {e}. Revisa los nombres en tu archivo .ui.")
+            return None, None
 
-        # Campos básicos (Tu lógica existente)
-        if hasattr(self.ui, 'CampoReferenciaTrabajo'):
-            required_core_fields.append((self.ui.CampoReferenciaTrabajo, "Referencia"))
-            all_fields_to_clear.append(self.ui.CampoReferenciaTrabajo)
-        if hasattr(self.ui, 'CampoNumeroTicket'):
-            required_core_fields.append((self.ui.CampoNumeroTicket, "Número de Ticket"))
-            all_fields_to_clear.append(self.ui.CampoNumeroTicket)
-        if hasattr(self.ui, 'CampoColor'):
-            required_core_fields.append((self.ui.CampoColor, "Color"))
-            all_fields_to_clear.append(self.ui.CampoColor)
+        fields_to_clear.extend([referencia_field, ticket_field, color_field])
 
-        for field, name in required_core_fields:
-            if not field.text().strip():
-                QMessageBox.warning(self, "Campos Incompletos", f"El campo '{name}' es obligatorio.")
-                field.setFocus()
-                return
+        referencia = referencia_field.text().strip()
+        ticket_number = ticket_field.text().strip()
+        color = color_field.text().strip()
 
-        referencia = getattr(self.ui, 'CampoReferenciaTrabajo').text().strip()
-        ticket_number = getattr(self.ui, 'CampoNumeroTicket').text().strip()
-        color = getattr(self.ui, 'CampoColor').text().strip()
+        if not all([referencia, ticket_number, color]):
+            QMessageBox.warning(self, "Campos Incompletos", f"Debes llenar Referencia, N° de Tiquete y Color para el Tiquete {ticket_label}.")
+            return None, None
 
-        # Tallas (Tu lógica existente)
+        # 2. Recolectar tallas
         tallas_cantidades = {}
-        total_producido_calculado = 0
         has_any_talla = False
         for i in range(33, 49):
-            field_name = f"CampoTalla_{i}"
-            if hasattr(self.ui, field_name):
-                talla_field = getattr(self.ui, field_name)
-                all_fields_to_clear.append(talla_field)
+            talla_field_name = f"CampoTalla_{i}{suffix}"
+            if hasattr(ui, talla_field_name):
+                talla_field = getattr(ui, talla_field_name)
+                fields_to_clear.append(talla_field)
                 cantidad_text = talla_field.text().strip()
                 if cantidad_text:
-                    if cantidad_text.isdigit() and int(cantidad_text) > 0:
-                        cantidad = int(cantidad_text)
-                        tallas_cantidades[str(i)] = cantidad
-                        total_producido_calculado += cantidad
-                        has_any_talla = True
-                    else:
-                        QMessageBox.warning(self, "Entrada Inválida", f"La cantidad para Talla {i} debe ser un número positivo.")
+                    if not cantidad_text.isdigit() or int(cantidad_text) <= 0:
+                        QMessageBox.warning(self, "Entrada Inválida", f"La cantidad para Talla {i} (Tiquete {ticket_label}) debe ser un número positivo.")
                         talla_field.setFocus()
-                        return
+                        return None, None
+                    tallas_cantidades[str(i)] = int(cantidad_text)
+                    has_any_talla = True
+        
         if not has_any_talla:
-            QMessageBox.warning(self, "Campos Incompletos", "Debe ingresar cantidad para al menos una talla.")
+            QMessageBox.warning(self, "Campos Incompletos", f"Debes ingresar cantidad para al menos una talla en el Tiquete {ticket_label}.")
+            return None, None
+            
+        # 3. Empaquetar y retornar datos
+        ticket_data = {
+            "ticket_number": ticket_number,
+            "referencia": referencia,
+            "color": color,
+            "tallas_cantidades": tallas_cantidades,
+        }
+        return ticket_data, fields_to_clear
+
+
+    def on_save_button_clicked(self):
+        """
+        Handler para el botón de guardar, actualizado para manejar dos tiquetes
+        y llamar al nuevo generador de PDF.
+        """
+        # --- Recolección de Datos para Ambos Tiquetes ---
+        print("Recolectando datos del Tiquete A (Izquierda)...")
+        ticket_A_data, fields_A = self._collect_ticket_data(suffix="", ticket_label="A")
+        if ticket_A_data is None:
+            return # La validación falló y el mensaje ya se mostró
+
+        print("Recolectando datos del Tiquete B (Derecha)...")
+        ticket_B_data, fields_B = self._collect_ticket_data(suffix="", ticket_label="B")
+        if ticket_B_data is None:
+            return # La validación falló
+
+        all_fields_to_clear = fields_A + fields_B
+
+        # --- Generación de PDF ---
+        # Crea un nombre de archivo descriptivo
+        output_filename = f"codes/vales_{ticket_A_data['ticket_number']}_{ticket_B_data['ticket_number']}.pdf"
+
+        # Llama a la función importada que ahora maneja dos tiquetes
+        pdf_path = generate_vale_pdf(
+            left_ticket_info=ticket_A_data,
+            right_ticket_info=ticket_B_data,
+            output_filename=output_filename
+        )
+
+        if not pdf_path:
+            QMessageBox.critical(self, "Error", "No se pudo generar el archivo PDF.")
             return
 
-        # --- Recolección de Valores (Actualizado) ---
-        valores_trabajo = {}
-        # Itera sobre los nuevos tipos y sus campos UI mapeados
-        for work_type, field_attr_name in CAMPOS_VALOR_TRABAJO_MAP.items():
-            if hasattr(self.ui, field_attr_name):
-                valor_field = getattr(self.ui, field_attr_name)
-                all_fields_to_clear.append(valor_field)
-                valor_text = valor_field.text().strip()
-                if valor_text: # Solo procesa si hay valor
-                    try:
-                        valor_float = float(valor_text.replace(',', '.'))
-                        valores_trabajo[work_type] = valor_float # Usa el nombre del trabajo como clave
-                    except ValueError:
-                        QMessageBox.warning(self, "Entrada Inválida", f"El valor para '{work_type}' debe ser un número.")
-                        valor_field.setFocus()
-                        return
-        # --- Fin Recolección de Valores ---
+        # --- Feedback al Usuario ---
+        QMessageBox.information(
+            self, "Operación Exitosa",
+            f"PDF para tiquetes {ticket_A_data['ticket_number']} y {ticket_B_data['ticket_number']} generado exitosamente.\n\n"
+            f"Archivo guardado en: {pdf_path}"
+        )
 
-        # --- Generación de Códigos (Actualizado) ---
-        sanitized_ticket_number = ticket_number.replace('/', '_').replace('\\', '_').strip()
-        sanitized_referencia = referencia.replace('/', '_').replace('\\', '_').strip()
-        subfolder_name_for_codes = f"{sanitized_ticket_number}_{sanitized_referencia}".strip('_') or f"trabajo_{str(uuid.uuid4())[:8]}"
+        # --- Limpieza de Campos ---
+        print("Limpiando campos de la UI...")
+        for field_widget in all_fields_to_clear:
+            field_widget.clear()
+        
+        # Devolver el foco al primer campo
+        if hasattr(self.ui, 'CampoReferenciaTrabajo'):
+            self.ui.CampoReferenciaTrabajo.setFocus()
 
-        serial_codes = {}
-        barcode_paths = {} # Este diccionario usará los nombres de trabajo como clave
+        # Opcional: Abrir el PDF generado
+        try:
+            if sys.platform == "win32":
+                os.startfile(os.path.abspath(pdf_path))
+            else:
+                opener = "open" if sys.platform == "darwin" else "xdg-open"
+                subprocess.call([opener, os.path.abspath(pdf_path)])
+        except Exception as e:
+            print(f"No se pudo abrir el PDF automáticamente: {e}")
         
         # Itera sobre el diccionario de abreviaturas actualizado
         for work_type, abbr in WORK_TYPE_ABBREVIATIONS.items():
@@ -1066,7 +1450,6 @@ class MainWindow(QMainWindow):
         # Set window title
         self.setWindowTitle('Gestor de Vales')
         UIFunctions.labelTitle(self, 'Thimoty')
-        UIFunctions.labelDescription(self, '2025')
         
         # Set window size
         startSize = QSize(1300, 720)
@@ -1083,8 +1466,14 @@ class MainWindow(QMainWindow):
         self.ui.stackedWidget.setMinimumWidth(20)
         UIFunctions.addNewMenu(self, "Leer Vales", "btn_home", "url(:/16x16/icons/16x16/cil-home.png)", True)
         UIFunctions.addNewMenu(self, "Crear Vales", "btn_new_user", "url(:/16x16/icons/16x16/cil-user-follow.png)", True)
-        UIFunctions.addNewMenu(self, "Configuracion", "btn_widgets", "url(:/16x16/icons/16x16/cil-equalizer.png)", False)
         
+        # ==> NUEVOS MENÚS AÑADIDOS AQUÍ
+        UIFunctions.addNewMenu(self, "Tablas", "btn_tables", "url(:/16x16/icons/16x16/cil-grid.png)", True)
+        UIFunctions.addNewMenu(self, "Consolidado", "btn_consolidado", "url(:/16x16/icons/16x16/cil-chart-pie.png)", True)
+        
+        # Menú de configuración (si lo necesitas, si no, puedes eliminarlo)
+        UIFunctions.addNewMenu(self, "Configuracion", "btn_widgets", "url(:/16x16/icons/16x16/cil-equalizer.png)", False)
+
         # Select starting menu
         UIFunctions.selectStandardMenu(self, "btn_home")
         
@@ -1528,10 +1917,6 @@ class MainWindow(QMainWindow):
             print(f"Error al registrar vales: {e}")
             QMessageBox.critical(self, "Error", f"Error al registrar vales: {str(e)}")
 
-
-
-
-
     def Button(self):
         """Handler for menu button clicks"""
         # Get clicked button
@@ -1542,15 +1927,29 @@ class MainWindow(QMainWindow):
             self.ui.stackedWidget.setCurrentWidget(self.ui.page_home)
             UIFunctions.resetStyle(self, "btn_home")
             btnWidget.setStyleSheet(UIFunctions.selectMenu(btnWidget.styleSheet()))
+            
         elif btnWidget.objectName() == "btn_new_user":
-            self.ui.stackedWidget.setCurrentWidget(self.ui.page_widgets)
-            UIFunctions.resetStyle(self, "btn_widgets")
-            btnWidget.setStyleSheet(UIFunctions.selectMenu(btnWidget.styleSheet()))
-        elif btnWidget.objectName() == "btn_widgets":
-            self.ui.stackedWidget.setCurrentWidget(self.ui.create_user)
-            UIFunctions.resetStyle(self, "create_user")      
+            self.ui.stackedWidget.setCurrentWidget(self.ui.page_widgets) # Asumo que esta es la página para "Crear Vales"
+            UIFunctions.resetStyle(self, "btn_new_user") # Corregido: antes decía "btn_widgets"
             btnWidget.setStyleSheet(UIFunctions.selectMenu(btnWidget.styleSheet()))
 
+        # ==> NUEVOS HANDLERS AÑADIDOS AQUÍ
+        elif btnWidget.objectName() == "btn_tables":
+            self.ui.stackedWidget.setCurrentWidget(self.ui.page_tables)
+            UIFunctions.resetStyle(self, "btn_tables")
+            btnWidget.setStyleSheet(UIFunctions.selectMenu(btnWidget.styleSheet()))
+
+        elif btnWidget.objectName() == "btn_consolidado":
+            self.ui.stackedWidget.setCurrentWidget(self.ui.page_consolidado)
+            UIFunctions.resetStyle(self, "btn_consolidado")
+            btnWidget.setStyleSheet(UIFunctions.selectMenu(btnWidget.styleSheet()))
+
+        # Handler para el botón de configuración (si lo usas)
+        elif btnWidget.objectName() == "btn_widgets":
+            # Asegúrate de que la página sea la correcta, por ejemplo self.ui.page_settings
+            self.ui.stackedWidget.setCurrentWidget(self.ui.create_user) # Cambia create_user por tu página de configuración
+            UIFunctions.resetStyle(self, "btn_widgets") # Corregido: antes decía "create_user"
+            btnWidget.setStyleSheet(UIFunctions.selectMenu(btnWidget.styleSheet()))
     # Window event handlers
     def moveWindow(self, event):
         """Handle window movement"""

@@ -1,5 +1,4 @@
-
-
+#ui_functions.py 
 ## ==> GUI FILE
 from main import *
 
@@ -96,9 +95,6 @@ class UIFunctions(MainWindow):
     def labelTitle(self, text):
         self.ui.label_title_bar_top.setText(text)
 
-    # LABEL DESCRIPTION
-    def labelDescription(self, text):
-        self.ui.label_top_info_1.setText(text)
 
     ## ==> DYNAMIC MENUS
     ########################################################################
@@ -149,10 +145,6 @@ class UIFunctions(MainWindow):
             if w.objectName() != widget:
                 w.setStyleSheet(UIFunctions.deselectMenu(w.styleSheet()))
 
-    ## ==> CHANGE PAGE LABEL TEXT
-    def labelPage(self, text):
-        newText = '| ' + text.upper()
-        self.ui.label_top_info_2.setText(newText)
 
     ## ==> USER ICON
     ########################################################################

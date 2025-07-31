@@ -696,7 +696,7 @@ class Ui_MainWindow(object):
         self.scrollAreaWidget_Pagos_Satelites.setWidgetResizable(True)
         self.scrollAreaWidgetContents_3 = QWidget()
         self.scrollAreaWidgetContents_3.setObjectName(u"scrollAreaWidgetContents_3")
-        self.scrollAreaWidgetContents_3.setGeometry(QRect(0, 0, 451, 489))
+        self.scrollAreaWidgetContents_3.setGeometry(QRect(0, 0, 451, 566))
         self.scrollAreaWidget_Pagos_Satelites.setWidget(self.scrollAreaWidgetContents_3)
 
         self.horizontalLayout.addWidget(self.scrollAreaWidget_Pagos_Satelites)
@@ -706,7 +706,7 @@ class Ui_MainWindow(object):
         self.scrollAreaWidget_Pagos_empleados.setWidgetResizable(True)
         self.scrollAreaWidgetContents_2 = QWidget()
         self.scrollAreaWidgetContents_2.setObjectName(u"scrollAreaWidgetContents_2")
-        self.scrollAreaWidgetContents_2.setGeometry(QRect(0, 0, 450, 489))
+        self.scrollAreaWidgetContents_2.setGeometry(QRect(0, 0, 450, 566))
         self.scrollAreaWidget_Pagos_empleados.setWidget(self.scrollAreaWidgetContents_2)
 
         self.horizontalLayout.addWidget(self.scrollAreaWidget_Pagos_empleados)
@@ -725,13 +725,9 @@ class Ui_MainWindow(object):
         sizePolicy3.setVerticalStretch(6)
         sizePolicy3.setHeightForWidth(self.page_tables.sizePolicy().hasHeightForWidth())
         self.page_tables.setSizePolicy(sizePolicy3)
-        self.horizontalLayout_13 = QHBoxLayout(self.page_tables)
-        self.horizontalLayout_13.setObjectName(u"horizontalLayout_13")
-        self.Vales_impresos = QWidget(self.page_tables)
-        self.Vales_impresos.setObjectName(u"Vales_impresos")
-        self.verticalLayout_9 = QVBoxLayout(self.Vales_impresos)
+        self.verticalLayout_9 = QVBoxLayout(self.page_tables)
         self.verticalLayout_9.setObjectName(u"verticalLayout_9")
-        self.label_Lecturadecodigodebarras_2 = QLabel(self.Vales_impresos)
+        self.label_Lecturadecodigodebarras_2 = QLabel(self.page_tables)
         self.label_Lecturadecodigodebarras_2.setObjectName(u"label_Lecturadecodigodebarras_2")
         self.label_Lecturadecodigodebarras_2.setEnabled(True)
         sizePolicy4 = QSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
@@ -747,34 +743,31 @@ class Ui_MainWindow(object):
 
         self.verticalLayout_9.addWidget(self.label_Lecturadecodigodebarras_2)
 
-        self.widget_impresos_empleado_container = QWidget(self.Vales_impresos)
-        self.widget_impresos_empleado_container.setObjectName(u"widget_impresos_empleado_container")
-        self.widget_impresos_empleado_container.setMinimumSize(QSize(0, 269))
+        self.Vales_pagos = QWidget(self.page_tables)
+        self.Vales_pagos.setObjectName(u"Vales_pagos")
 
-        self.verticalLayout_9.addWidget(self.widget_impresos_empleado_container)
-
-        self.widget_impresos_satelite_container = QWidget(self.Vales_impresos)
-        self.widget_impresos_satelite_container.setObjectName(u"widget_impresos_satelite_container")
-
-        self.verticalLayout_9.addWidget(self.widget_impresos_satelite_container)
-
-
-        self.horizontalLayout_13.addWidget(self.Vales_impresos)
-
-        self.Vales_salidos = QWidget(self.page_tables)
-        self.Vales_salidos.setObjectName(u"Vales_salidos")
-
-        self.horizontalLayout_13.addWidget(self.Vales_salidos)
+        self.verticalLayout_9.addWidget(self.Vales_pagos)
 
         self.Vales_entraron = QWidget(self.page_tables)
         self.Vales_entraron.setObjectName(u"Vales_entraron")
 
-        self.horizontalLayout_13.addWidget(self.Vales_entraron)
+        self.verticalLayout_9.addWidget(self.Vales_entraron)
 
-        self.Vales_pagos = QWidget(self.page_tables)
-        self.Vales_pagos.setObjectName(u"Vales_pagos")
+        self.Vales_salidos = QWidget(self.page_tables)
+        self.Vales_salidos.setObjectName(u"Vales_salidos")
 
-        self.horizontalLayout_13.addWidget(self.Vales_pagos)
+        self.verticalLayout_9.addWidget(self.Vales_salidos)
+
+        self.Vales_impresos = QWidget(self.page_tables)
+        self.Vales_impresos.setObjectName(u"Vales_impresos")
+        self.widget_impresos_empleado_container = QWidget(self.Vales_impresos)
+        self.widget_impresos_empleado_container.setObjectName(u"widget_impresos_empleado_container")
+        self.widget_impresos_empleado_container.setGeometry(QRect(9, 9, 213, 269))
+        self.widget_impresos_satelite_container = QWidget(self.Vales_impresos)
+        self.widget_impresos_satelite_container.setObjectName(u"widget_impresos_satelite_container")
+        self.widget_impresos_satelite_container.setGeometry(QRect(9, 284, 213, 268))
+
+        self.verticalLayout_9.addWidget(self.Vales_impresos)
 
         self.stackedWidget.addWidget(self.page_tables)
         self.create_user = QWidget()
@@ -1977,7 +1970,7 @@ class Ui_MainWindow(object):
         self.btnActualizarDB.setText(QCoreApplication.translate("MainWindow", u"Generar Pagos", None))
         self.EliminarTODO.setText(QCoreApplication.translate("MainWindow", u"ELIMINAR TODO", None))
         self.label_Consolidado_Pagos.setText(QCoreApplication.translate("MainWindow", u"<html><head/><body><p align=\"center\"><span style=\" font-size:18pt; font-weight:600;\">Consolidado de pagos</span></p></body></html>", None))
-        self.label_Lecturadecodigodebarras_2.setText(QCoreApplication.translate("MainWindow", u"<html><head/><body><p><span style=\" vertical-align:super;\">Consolidado de tickets</span></p></body></html>", None))
+        self.label_Lecturadecodigodebarras_2.setText(QCoreApplication.translate("MainWindow", u"Consolidado de tickets", None))
         self.label.setText(QCoreApplication.translate("MainWindow", u"<html><head/><body><p align=\"center\"><span style=\" font-size:14pt; font-weight:600;\">A\u00f1adir Empleado</span></p></body></html>", None))
         self.labelBoxNombreEmpleado.setText(QCoreApplication.translate("MainWindow", u"Nombre Empleado", None))
 #if QT_CONFIG(whatsthis)

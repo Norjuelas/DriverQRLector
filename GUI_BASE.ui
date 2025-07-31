@@ -7,8 +7,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1000</width>
-    <height>748</height>
+    <width>1216</width>
+    <height>803</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -1073,38 +1073,6 @@ QPushButton:pressed {
                 <property name="bottomMargin">
                  <number>0</number>
                 </property>
-                <item alignment="Qt::AlignHCenter">
-                 <widget class="QLabel" name="label_top_info_2">
-                  <property name="minimumSize">
-                   <size>
-                    <width>0</width>
-                    <height>0</height>
-                   </size>
-                  </property>
-                  <property name="maximumSize">
-                   <size>
-                    <width>250</width>
-                    <height>20</height>
-                   </size>
-                  </property>
-                  <property name="font">
-                   <font>
-                    <family>Segoe UI</family>
-                    <weight>75</weight>
-                    <bold>true</bold>
-                   </font>
-                  </property>
-                  <property name="styleSheet">
-                   <string notr="true">color: rgb(98, 103, 111);</string>
-                  </property>
-                  <property name="text">
-                   <string>Industrias Thimoty</string>
-                  </property>
-                  <property name="alignment">
-                   <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-                  </property>
-                 </widget>
-                </item>
                </layout>
               </widget>
              </item>
@@ -1306,13 +1274,13 @@ QPushButton:pressed {
                 <property name="bottomMargin">
                  <number>5</number>
                 </property>
-                <item row="0" column="0">
+                <item row="0" column="1">
                  <widget class="QStackedWidget" name="stackedWidget">
                   <property name="styleSheet">
                    <string notr="true">background: transparent;</string>
                   </property>
                   <property name="currentIndex">
-                   <number>0</number>
+                   <number>2</number>
                   </property>
                   <widget class="QWidget" name="page_home">
                    <layout class="QVBoxLayout" name="verticalLayout_10">
@@ -1372,30 +1340,7 @@ QPushButton:pressed {
                      </layout>
                     </item>
                     <item>
-                     <widget class="QWidget" name="WidgetTabla" native="true">
-                      <layout class="QHBoxLayout" name="horizontalLayout">
-                       <item>
-                        <widget class="QWidget" name="TicketsEntrada" native="true">
-                         <property name="maximumSize">
-                          <size>
-                           <width>491</width>
-                           <height>311</height>
-                          </size>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <widget class="QWidget" name="TicketsSalida" native="true">
-                         <property name="maximumSize">
-                          <size>
-                           <width>491</width>
-                           <height>311</height>
-                          </size>
-                         </property>
-                        </widget>
-                       </item>
-                      </layout>
-                     </widget>
+                     <widget class="QWidget" name="WidgetTabla" native="true"/>
                     </item>
                     <item>
                      <widget class="QPushButton" name="btnRegisterVale">
@@ -1514,24 +1459,129 @@ QPushButton:pressed {
                     </item>
                    </layout>
                   </widget>
-                  <widget class="QWidget" name="Consolidado">
-                   <layout class="QVBoxLayout" name="verticalLayout_9">
+                  <widget class="QWidget" name="page_consolidado">
+                   <property name="enabled">
+                    <bool>true</bool>
+                   </property>
+                   <layout class="QHBoxLayout" name="horizontalLayout_12">
                     <item>
                      <widget class="QWidget" name="widget" native="true">
-                      <layout class="QVBoxLayout" name="verticalLayout_12">
+                      <property name="maximumSize">
+                       <size>
+                        <width>931</width>
+                        <height>671</height>
+                       </size>
+                      </property>
+                      <layout class="QGridLayout" name="gridLayout_3">
+                       <item row="1" column="0">
+                        <widget class="QWidget" name="Widget_Pagos_empleados" native="true">
+                         <layout class="QHBoxLayout" name="horizontalLayout_11">
+                          <item>
+                           <widget class="QWidget" name="Widget_Pagos_Satelites" native="true">
+                            <property name="maximumSize">
+                             <size>
+                              <width>911</width>
+                              <height>18</height>
+                             </size>
+                            </property>
+                            <layout class="QVBoxLayout" name="verticalLayout_12"/>
+                           </widget>
+                          </item>
+                         </layout>
+                        </widget>
+                       </item>
+                       <item row="0" column="0">
+                        <widget class="QLabel" name="label_Consolidado_Pagos">
+                         <property name="text">
+                          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;&lt;span style=&quot; font-size:18pt; font-weight:600;&quot;&gt;Consolidado de pagos&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item row="2" column="0">
+                        <layout class="QHBoxLayout" name="horizontalLayout">
+                         <item>
+                          <widget class="QScrollArea" name="scrollAreaWidget_Pagos_Satelites">
+                           <property name="widgetResizable">
+                            <bool>true</bool>
+                           </property>
+                           <widget class="QWidget" name="scrollAreaWidgetContents_3">
+                            <property name="geometry">
+                             <rect>
+                              <x>0</x>
+                              <y>0</y>
+                              <width>451</width>
+                              <height>489</height>
+                             </rect>
+                            </property>
+                           </widget>
+                          </widget>
+                         </item>
+                         <item>
+                          <widget class="QScrollArea" name="scrollAreaWidget_Pagos_empleados">
+                           <property name="widgetResizable">
+                            <bool>true</bool>
+                           </property>
+                           <widget class="QWidget" name="scrollAreaWidgetContents_2">
+                            <property name="geometry">
+                             <rect>
+                              <x>0</x>
+                              <y>0</y>
+                              <width>450</width>
+                              <height>489</height>
+                             </rect>
+                            </property>
+                           </widget>
+                          </widget>
+                         </item>
+                        </layout>
+                       </item>
+                      </layout>
+                     </widget>
+                    </item>
+                   </layout>
+                  </widget>
+                  <widget class="QWidget" name="page_tables">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>6</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <layout class="QHBoxLayout" name="horizontalLayout_13">
+                    <item>
+                     <widget class="QWidget" name="Vales_impresos" native="true">
+                      <layout class="QVBoxLayout" name="verticalLayout_9">
                        <item>
                         <widget class="QLabel" name="label_Lecturadecodigodebarras_2">
+                         <property name="enabled">
+                          <bool>true</bool>
+                         </property>
+                         <property name="sizePolicy">
+                          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                           <horstretch>0</horstretch>
+                           <verstretch>0</verstretch>
+                          </sizepolicy>
+                         </property>
+                         <property name="minimumSize">
+                          <size>
+                           <width>0</width>
+                           <height>71</height>
+                          </size>
+                         </property>
                          <property name="font">
                           <font>
                            <family>Segoe UI</family>
                            <pointsize>40</pointsize>
                           </font>
                          </property>
+                         <property name="autoFillBackground">
+                          <bool>false</bool>
+                         </property>
                          <property name="styleSheet">
                           <string notr="true"/>
                          </property>
                          <property name="text">
-                          <string>Consolidado de pagos</string>
+                          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; vertical-align:super;&quot;&gt;Consolidado de tickets&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
                          </property>
                          <property name="alignment">
                           <set>Qt::AlignCenter</set>
@@ -1539,13 +1589,29 @@ QPushButton:pressed {
                         </widget>
                        </item>
                        <item>
-                        <widget class="QWidget" name="widget_3" native="true"/>
+                        <widget class="QWidget" name="widget_impresos_empleado_container" native="true">
+                         <property name="minimumSize">
+                          <size>
+                           <width>0</width>
+                           <height>269</height>
+                          </size>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QWidget" name="widget_impresos_satelite_container" native="true"/>
                        </item>
                       </layout>
                      </widget>
                     </item>
                     <item>
-                     <widget class="QWidget" name="widget_2" native="true"/>
+                     <widget class="QWidget" name="Vales_salidos" native="true"/>
+                    </item>
+                    <item>
+                     <widget class="QWidget" name="Vales_entraron" native="true"/>
+                    </item>
+                    <item>
+                     <widget class="QWidget" name="Vales_pagos" native="true"/>
                     </item>
                    </layout>
                   </widget>
@@ -3167,7 +3233,7 @@ QLineEdit:focus {
                            <rect>
                             <x>0</x>
                             <y>0</y>
-                            <width>276</width>
+                            <width>340</width>
                             <height>383</height>
                            </rect>
                           </property>
@@ -3757,6 +3823,8 @@ QPushButton:pressed {
            </widget>
           </item>
          </layout>
+         <zorder>frame_content_right</zorder>
+         <zorder>frame_left_menu</zorder>
         </widget>
        </item>
       </layout>
