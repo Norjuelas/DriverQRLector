@@ -1,11 +1,13 @@
 import sys
 import os
 import platform
+from typing import Any, Dict
 import uuid
 import traceback
 import datetime as dt
 import time
-
+import pandas as pd
+import re
 from openpyxl import Workbook, load_workbook
 
 from PySide2 import QtCore, QtGui, QtWidgets
@@ -24,22 +26,43 @@ from PySide2.QtWidgets import QTableView, QVBoxLayout
 from PySide2.QtGui import QStandardItemModel
 
 # Imports 
-from generate_pdf import generate_vale_pdf
+from generate_pdf import generar_vales_pdf,increment_ticket_number
 
 from utils import validate_cedula, display_code_image
 
-from config import TIPOS_DE_TRABAJO, WORK_TYPE_ABBREVIATIONS, CAMPOS_VALOR_TRABAJO_MAP    
-# GUI FILE
-from app_modules import *
+from config import TIPOS_DE_TRABAJO, WORK_TYPE_ABBREVIATIONS, CAMPOS_VALOR_TRABAJO_MAP, WORK_TYPES # Importamos la configuración central
 
+# GUI FILE
+
+# GUI FILE
+from ui_main import Ui_MainWindow
+
+# IMPORT QSS CUSTOM
+from ui_styles import Style
+
+## ==> APP FUNCTIONS
+from backup_thread import BackupThread, BackupManager
+
+from autocompletado import *
+
+from generate_pdf import *
+
+from generateCodes import *
+from db import init_db
+
+from dao import guardar_o_actualizar_trabajo,buscar_trabajo_por_codigo_serial, vale_existe, crear_vale
 
 class MainWindow(QMainWindow):
+    DB_EXCEL_PATH = "database.xlsx"
+    DB_EXCEL_SHEET_NAME = "Trabajos"
+    PDF_OUTPUT_DIR = "codes"
+    
     def __init__(self):
         QMainWindow.__init__(self)
+
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
         self.dragPos = None
-
         # Current code type (barcode or qr)
         self.current_code_type = "barcode"  # Default to barcode
 
@@ -71,71 +94,53 @@ class MainWindow(QMainWindow):
         # Setup add employee button
         self.setup_add_employee_button()
 
-        self.autocompletado_manager = AutocompletadoManager(excel_path=self.excel_path, sheet_name="Trabajos")
+        self.autocompletado_manager = AutocompletadoManager()
         self.setup_autocompletado_fields()
 
         # Show the window
         self.show()
 
-
     def setup_code_reader(self):
-        """Setup the code reader functionality and TableView inside WidgetTabla"""
-        
-        # El codeReaderInput YA existe en tu UI, solo necesitamos conectar el signal
-        if hasattr(self.ui, 'codeReaderInput'):
-            print("codeReaderInput encontrado en UI")
-            # Configurar el input existente
-            self.ui.codeReaderInput.setPlaceholderText("Escanear o ingresar código aquí...")
-            self.ui.codeReaderInput.setMinimumWidth(250)
-            
-            # IMPORTANTE: Conectar el signal returnPressed
-            self.ui.codeReaderInput.returnPressed.connect(self.on_code_scanned)
-            print("Signal returnPressed conectado")
-        else:
-            print("ERROR: codeReaderInput no encontrado en UI")
+        """
+        Configura el lector de código y la tabla de visualización de vales.
+        """
+        if not hasattr(self.ui, 'codeReaderInput'):
+            print("ERROR: codeReaderInput no encontrado en la UI.")
             return
         
-        # Access the WidgetTabla from UI and setup table
+        # Conectar la señal `returnPressed` para activar el escaneo
+        self.ui.codeReaderInput.returnPressed.connect(self.on_code_scanned)
+        print("Manejador de escaneo de código conectado.")
+
+        # Configurar la tabla de visualización
         if hasattr(self.ui, 'WidgetTabla'):
-            print("WidgetTabla encontrado")
-            
-            # Solo crear el layout si WidgetTabla no tiene uno
+            # Crear layout si no existe
             if self.ui.WidgetTabla.layout() is None:
                 table_layout = QVBoxLayout(self.ui.WidgetTabla)
                 self.ui.WidgetTabla.setLayout(table_layout)
-                print("Layout creado para WidgetTabla")
             else:
                 table_layout = self.ui.WidgetTabla.layout()
-                print("Usando layout existente de WidgetTabla")
             
-            # Solo crear la tabla si no existe
+            # Crear tabla y modelo si no existen
             if not hasattr(self.ui, 'tableViewVale'):
-                print("Creando tableViewVale")
-                # Create TableView
-                self.ui.tableViewVale = QTableView(self.ui.WidgetTabla)
-                self.ui.tableViewVale.setMinimumHeight(200)
-                
-                # Create the model for the table
-                self.table_model = QStandardItemModel()
-                # Definir encabezados: fijos + dinámicos basados en WORK_TYPE_ABBREVIATIONS
-                fixed_headers = ["Código Serial", "Número Ticket", "Referencia", "Color", "Total Producido"]
-                valor_headers = [f"Valor {work_type}" for work_type in WORK_TYPE_ABBREVIATIONS.keys()]
-                self.table_model.setHorizontalHeaderLabels(fixed_headers + valor_headers)
-                
-                # Set model and adjust view
-                self.ui.tableViewVale.setModel(self.table_model)
-                # Apply stretch mode to all columns
-                header = self.ui.tableViewVale.horizontalHeader()
-                for i in range(self.table_model.columnCount()):
-                    header.setSectionResizeMode(i, QHeaderView.Stretch)
-                
-                # Add TableView to WidgetTabla's layout
+                self.ui.tableViewVale = QTableView()
                 table_layout.addWidget(self.ui.tableViewVale)
-                print("tableViewVale creado y agregado")
-            else:
-                print("tableViewVale ya existe")
+                self.table_model = QtGui.QStandardItemModel()
+                self.ui.tableViewVale.setModel(self.table_model)
+            
+            # Definir las cabeceras de la tabla (más simples y directas)
+            headers = [
+                "Código Serial", "N° Ticket", "Referencia", "Tipo Trabajo", 
+                "Color", "Total Pares", "Valor Pagado"
+            ]
+            self.table_model.setHorizontalHeaderLabels(headers)
+
+            # Ajustar el tamaño de las columnas
+            header_view = self.ui.tableViewVale.horizontalHeader()
+            header_view.setSectionResizeMode(QHeaderView.Stretch)
+            print("Tabla de vales configurada.")
         else:
-            print("Warning: WidgetTabla not found in UI")
+            print("ADVERTENCIA: WidgetTabla no encontrado en la UI.")
 
 
     def setup_code_generator(self):
@@ -143,7 +148,7 @@ class MainWindow(QMainWindow):
         Configura la funcionalidad del generador de códigos y el archivo Excel.
         (Actualizado para usar los nuevos tipos de trabajo)
         """
-        self.excel_path = "trabajos_database.xlsx"
+        self.excel_path = "database.xlsx"
         self.vales_sheet_name = "Vales"
 
         if not os.path.exists("codes"):
@@ -214,53 +219,94 @@ class MainWindow(QMainWindow):
         else:
             print("Advertencia: self.ui.PreviwImage no encontrado.")
 
-    def save_to_excel(self, serial_codes, code_path, ticket_number, referencia, color, tallas_cantidades, total_producido_calculado, valores_trabajo):
+    def save_to_excel(self, data_to_save: Dict[str, Any]) -> bool:
         """
-        Guarda los datos en la hoja 'Trabajos' del archivo Excel.
+        Guarda o añade eficientemente los datos de un vale a un archivo Excel.
+
+        Esta versión está corregida, mejorada con manejo de errores específico y
+        es más robusta contra problemas comunes como archivos abiertos o hojas eliminadas.
         """
         try:
-            wb = load_workbook(self.excel_path)
-            ws_trabajos = wb["Trabajos"]
-
-            # Crear una nueva fila con los datos
-            row_data = [
-                list(serial_codes.values())[0] if serial_codes else "",  # Código Serial (primer código generado)
-                ticket_number,
-                referencia,
-                color
+            # 1. DEFINIR LA ESTRUCTURA Y ORDEN CORRECTO DE LAS COLUMNAS
+            # Esta lógica se mantiene, ya que define el "contrato" de cómo deben ser los datos.
+            all_work_types = WORK_TYPE_ABBREVIATIONS.keys()
+            
+            headers = [
+                'Número Ticket', 'Referencia', 'Color'
             ]
-            # Añadir cantidades por talla (33 a 48)
-            for i in range(33, 49):
-                row_data.append(tallas_cantidades.get(str(i), 0))
-            # Añadir total producido y valores por tipo de trabajo
-            row_data.append(total_producido_calculado)
-            # Añadir valores para cada tipo de trabajo según WORK_TYPE_ABBREVIATIONS
-            for work_type in WORK_TYPE_ABBREVIATIONS.keys():
-                row_data.append(valores_trabajo.get(work_type, 0))
-            # Añadir tipo de código y ruta de la imagen
-            row_data.extend([
-                self.current_code_type.upper(),  # Tipo Código
-                code_path  # Ruta Imagen
-            ])
-            # Añadir códigos seriales por tipo de trabajo
-            for work_type in WORK_TYPE_ABBREVIATIONS.keys():
-                row_data.append(serial_codes.get(work_type, ""))
+            headers.extend([f'Cant_T{i}' for i in range(33, 49)])
+            headers.append('Total Producido')
+            headers.extend([f'Valor {wt}' for wt in all_work_types])
+            headers.extend([f'Código_{wt.replace(" ", "_")}' for wt in all_work_types])
+            headers.extend(['ID_Vale_Unico', 'Timestamp', 'Estado'])
 
-            # Añadir la fila a la hoja "Trabajos"
-            ws_trabajos.append(row_data)
-            wb.save(self.excel_path)
-            return True
-        except PermissionError as e:
-            if e.errno == 13:  # Errno 13 is Permission Denied
-                QMessageBox.critical(self, "Error al Guardar",
-                                    f"No se pudo guardar en '{self.excel_path}'.\n\n"
-                                    "Por favor, asegúrese de que el archivo Excel no esté abierto en otro programa e inténtelo de nuevo.")
+            # 2. PREPARAR LOS DATOS DE LA FILA EN UN DICCIONARIO
+            # Se mapean los datos de entrada a los nombres de columna esperados.
+            row_data = {
+                'Número Ticket': data_to_save.get('ticket_number'),
+                'Referencia': data_to_save.get('referencia'),
+                'Color': data_to_save.get('color'),
+                'Total Producido': data_to_save.get('total_producido'),
+                'ID_Vale_Unico': data_to_save.get('id_vale_unico'),
+                'Timestamp': data_to_save.get('timestamp'),
+                'Estado': data_to_save.get('estado')
+            }
+
+            # Añadir tallas (con valor por defecto 0)
+            for i in range(33, 49):
+                row_data[f'Cant_T{i}'] = data_to_save.get('tallas_cantidades', {}).get(str(i), 0)
+
+            # Añadir valores y códigos
+            for work_type in all_work_types:
+                # <--- CORRECCIÓN CLAVE ---
+                # Se añade la variable 'work_type' a la f-string.
+                row_data[f'Valor {work_type}'] = data_to_save.get('valores_trabajo', {}).get(work_type, 0)
+                row_data[f'Código_{work_type.replace(" ", "_")}'] = data_to_save.get('serial_codes', {}).get(work_type, "")
+
+            # 3. CONVERTIR A LISTA ORDENADA SEGÚN LOS ENCABEZADOS
+            # Esta es la parte más importante para evitar desfases. ¡Excelente práctica!
+            ordered_row = [row_data.get(h) for h in headers]
+
+            # 4. GUARDAR LOS DATOS EN EL ARCHIVO EXCEL
+            file_path = self.DB_EXCEL_PATH
+            sheet_name = self.DB_EXCEL_SHEET_NAME
+            
+            if not os.path.exists(file_path):
+                # Si el archivo no existe, lo creamos con encabezados usando pandas.
+                print(f"Archivo '{file_path}' no encontrado. Creando nuevo archivo.")
+                df = pd.DataFrame([ordered_row], columns=headers)
+                df.to_excel(file_path, index=False, sheet_name=sheet_name)
             else:
-                QMessageBox.critical(self, "Error de Permiso", f"Error de permiso al guardar en Excel: {e}")
+                # Si ya existe, usamos openpyxl para añadir la fila eficientemente.
+                workbook = load_workbook(file_path)
+                
+                # --- MEJORA 1: VERIFICAR SI LA HOJA EXISTE ---
+                if sheet_name not in workbook.sheetnames:
+                    print(f"Hoja '{sheet_name}' no encontrada en el archivo. Creando hoja y añadiendo encabezados.")
+                    sheet = workbook.create_sheet(sheet_name)
+                    sheet.append(headers) # Añadir encabezados a la nueva hoja
+                else:
+                    sheet = workbook[sheet_name]
+                
+                sheet.append(ordered_row)
+                workbook.save(file_path)
+
+            print(f"Datos del ticket {data_to_save.get('ticket_number')} guardados exitosamente en Excel.")
+            return True
+
+        # --- MEJORA 2: MANEJO DE ERRORES ESPECÍFICO ---
+        except PermissionError:
+            print(f"ERROR: No se puede escribir en el archivo '{self.DB_EXCEL_PATH}'. ¿Está abierto en Excel?")
+            # Aquí podrías usar QMessageBox para notificar al usuario.
+            return False
+        except KeyError as e:
+            print(f"ERROR: Configuración incorrecta. No se encontró la clave o la hoja: {e}")
             return False
         except Exception as e:
-            print(f"Error al guardar en Excel: {e}")
-            QMessageBox.critical(self, "Error", f"Error al guardar en Excel: {e}")
+            # Captura cualquier otro error inesperado.
+            print(f"ERROR: Ocurrió un error inesperado al guardar en Excel: {e}")
+            import traceback
+            traceback.print_exc() # Imprime el stack trace completo para depuración
             return False
 
     def find_code_data(self, serial_code):
@@ -326,52 +372,53 @@ class MainWindow(QMainWindow):
 
     def setup_autocompletado_fields(self):
         """
-        Configura el autocompletado para los campos QLineEdit relevantes.
+        Configura el autocompletado para los campos QLineEdit relevantes usando la BD.
         """
-        # Define los campos QLineEdit de la UI y las columnas de Excel correspondientes
-        # Formato: 'identificador_unico': {'line_edit': self.ui.NombreLineEdit, 'columna': 'NombreColumnaEnExcel'}
         campos_a_configurar = {}
 
-        # Campos de texto obligatorios según on_save_button_clicked
+        # Mapeo de campos de la UI a columnas de la BD
+        # Formato: 'id_unico': {'line_edit': QLineEdit, 'tabla': str, 'columna': str}
+        
+        # --- Campos de la tabla 'trabajos' ---
         if hasattr(self.ui, 'CampoReferenciaTrabajo'):
             campos_a_configurar['referencia'] = {
                 'line_edit': self.ui.CampoReferenciaTrabajo,
-                'columna': 'Referencia'
+                'tabla': 'trabajos',
+                'columna': 'referencia'  # Usar nombres de columna del schema.sql
             }
         if hasattr(self.ui, 'CampoNumeroTicket'):
             campos_a_configurar['numero_ticket'] = {
                 'line_edit': self.ui.CampoNumeroTicket,
-                'columna': 'Número Ticket'
+                'tabla': 'trabajos',
+                'columna': 'numero_ticket'
             }
         if hasattr(self.ui, 'CampoColor'):
             campos_a_configurar['color'] = {
                 'line_edit': self.ui.CampoColor,
-                'columna': 'Color'
+                'tabla': 'trabajos',
+                'columna': 'color'
+            }
+        
+        # --- Campos de la tabla 'empleados' (ejemplo) ---
+        # Si tienes un campo para buscar empleados por nombre:
+        if hasattr(self.ui, 'CampoNombreEmpleado'):
+             campos_a_configurar['nombre_empleado'] = {
+                'line_edit': self.ui.CampoNombreEmpleado,
+                'tabla': 'empleados',
+                'columna': 'nombre'
             }
 
-        # Opcional: Configurar autocompletado para tallas individuales
-        # Asumimos que las tallas están en columnas separadas (Cant_T33 a Cant_T48) en el Excel
-        for i in range(33, 49):  # Tallas de 33 a 48
-            field_name = f'CampoTalla_{i}'
-            if hasattr(self.ui, field_name):
-                campos_a_configurar[f'talla_{i}'] = {
-                    'line_edit': getattr(self.ui, field_name),
-                    'columna': f'Cant_T{i}'  # Nombre de columna en el Excel (Cant_T33, Cant_T34, etc.)
-                }
-
-        # Configurar autocompletado para valores de trabajo usando CAMPOS_VALOR_TRABAJO_MAP
-        for work_type, field_name in CAMPOS_VALOR_TRABAJO_MAP.items():
-            if hasattr(self.ui, field_name):
-                campos_a_configurar[field_name.lower()] = {
-                    'line_edit': getattr(self.ui, field_name),
-                    'columna': f'Valor {work_type}'
-                }
-
+        # Nota: Generalmente no se necesita autocompletado para valores numéricos como
+        # cantidades de tallas o valores monetarios, ya que no suelen repetirse
+        # de forma que el autocompletado sea útil. Si aún así lo deseas, puedes
+        # agregarlos aquí siguiendo el mismo patrón.
+        
         if campos_a_configurar:
+            print("Configurando autocompletado desde la base de datos...")
             self.autocompletado_manager.configurar_multiples_campos(campos_a_configurar)
-            print("Autocompletado configurado para los campos.")
+            print("Autocompletado configurado.")
         else:
-            print("No se encontraron campos para configurar el autocompletado.")
+            print("No se encontraron campos de UI para configurar el autocompletado.")
 
 
 
@@ -908,154 +955,290 @@ class MainWindow(QMainWindow):
             print(f"Error inesperado durante setup_employee_management: {e}")
             traceback.print_exc()
 
-    def on_save_button_clicked(self):
-
-        """Handler for save button click
-        (Actualizado para usar los nuevos tipos de trabajo y campos UI)
+    def _gather_and_validate_ui_data(self):
         """
-        required_core_fields = []
-        all_fields_to_clear = []
+        Responsabilidad: Recopilar y validar todos los datos de la interfaz.
+        - Todos los campos de valor de trabajo son ahora OBLIGATORIOS.
+        Retorna un diccionario con los datos o None si la validación falla.
+        """
+        # --- DIAGNÓSTICO DE VERSIÓN (sin cambios) ---
+        print(f"\nVERSIÓN DE PYTHON EN USO: {sys.version}\n")
 
-        # Campos básicos (Tu lógica existente)
-        if hasattr(self.ui, 'CampoReferenciaTrabajo'):
-            required_core_fields.append((self.ui.CampoReferenciaTrabajo, "Referencia"))
-            all_fields_to_clear.append(self.ui.CampoReferenciaTrabajo)
-        if hasattr(self.ui, 'CampoNumeroTicket'):
-            required_core_fields.append((self.ui.CampoNumeroTicket, "Número de Ticket"))
-            all_fields_to_clear.append(self.ui.CampoNumeroTicket)
-        if hasattr(self.ui, 'CampoColor'):
-            required_core_fields.append((self.ui.CampoColor, "Color"))
-            all_fields_to_clear.append(self.ui.CampoColor)
+        # --- Validación de campos básicos (sin cambios) ---
+        referencia = self.ui.CampoReferenciaTrabajo.text().strip()
+        ticket_number = self.ui.CampoNumeroTicket.text().strip()
+        color = self.ui.CampoColor.text().strip()
+        if not all([referencia, ticket_number, color]):
+            QMessageBox.warning(self, "Campos Incompletos", "Los campos Referencia, Número de Ticket y Color son obligatorios.")
+            return None
 
-        for field, name in required_core_fields:
-            if not field.text().strip():
-                QMessageBox.warning(self, "Campos Incompletos", f"El campo '{name}' es obligatorio.")
-                field.setFocus()
-                return
-
-        referencia = getattr(self.ui, 'CampoReferenciaTrabajo').text().strip()
-        ticket_number = getattr(self.ui, 'CampoNumeroTicket').text().strip()
-        color = getattr(self.ui, 'CampoColor').text().strip()
-
-        # Tallas (Tu lógica existente)
+        # --- SECCIÓN DE TALLAS (con mensaje de error corregido) ---
         tallas_cantidades = {}
         total_producido_calculado = 0
-        has_any_talla = False
+        for i in range(33, 49):
+            field_name = "CampoTalla_{}".format(i)
+            field = getattr(self.ui, field_name, None)
+            if field is None:
+                continue 
+
+            cantidad_text = field.text().strip()
+            if cantidad_text:
+                try:
+                    cantidad = int(cantidad_text)
+                    if cantidad > 0:
+                        tallas_cantidades[str(i)] = cantidad
+                        total_producido_calculado += cantidad
+                    else:
+                        # Añadido para no permitir cero o negativos
+                        QMessageBox.warning(self, "Entrada Inválida", f"La cantidad para Talla {i} debe ser un número positivo.")
+                        field.setFocus()
+                        return None
+                except ValueError:
+                    # CORRECCIÓN: Se añade la variable 'i' al mensaje de error.
+                    QMessageBox.warning(self, "Entrada Inválida", f"La cantidad para Talla {i} debe ser un número válido.")
+                    field.setFocus()
+                    return None
+        
+        if not tallas_cantidades:
+            QMessageBox.warning(self, "Campos Incompletos", "Debe ingresar cantidad para al menos una talla.")
+            return None
+
+        # --- SECCIÓN DE VALORES DE TRABAJO (MODIFICADA PARA SER OBLIGATORIA) ---
+        valores_trabajo = {}
+        for work_type, field_attr in CAMPOS_VALOR_TRABAJO_MAP.items():
+            field = getattr(self.ui, field_attr, None)
+            
+            # Es poco probable, pero es una buena práctica comprobar si el campo existe en la UI
+            if field is None:
+                QMessageBox.critical(self, "Error de UI", f"El campo '{field_attr}' no fue encontrado en la interfaz.")
+                return None
+
+            valor_text = field.text().strip()
+
+            # 1. ¡NUEVA VALIDACIÓN! Comprobar si el campo está vacío.
+            if not valor_text:
+                QMessageBox.warning(self, "Campo Obligatorio", f"Debe ingresar un valor para el campo '{work_type}'.")
+                field.setFocus() # Pone el cursor en el campo vacío.
+                return None # Detiene la ejecución.
+
+            # 2. Si no está vacío, proceder con la validación numérica.
+            try:
+                valor_float = float(valor_text.replace(',', '.'))
+                if valor_float <= 0:
+                    QMessageBox.warning(self, "Entrada Inválida", f"El valor para '{work_type}' debe ser un número positivo.")
+                    field.setFocus()
+                    return None
+                
+                valores_trabajo[work_type] = valor_float
+
+            except ValueError:
+                # CORRECCIÓN: Se añade la variable 'work_type' al mensaje de error.
+                QMessageBox.warning(self, "Entrada Inválida", f"El valor para '{work_type}' debe ser un número.")
+                field.setFocus()
+                return None
+
+        # --- Si todo es correcto, retornar el diccionario de datos (sin cambios) ---
+        return {
+            "referencia": referencia,
+            "ticket_number": ticket_number,
+            "color": color,
+            "tallas_cantidades": tallas_cantidades,
+            "total_producido": total_producido_calculado,
+            "valores_trabajo": valores_trabajo
+        }
+    def _clear_all_input_fields(self):
+        """
+        Limpia todos los campos de entrada del formulario, la previsualización de la imagen
+        y restablece el foco para la siguiente entrada de datos.
+        
+        Esta función está diseñada para ser llamada después de una operación exitosa.
+        """
+        print("Limpiando campos del formulario...")
+        
+        # 1. Recopilar todos los widgets de entrada en una lista
+        all_fields_to_clear = []
+
+        # Campos de texto básicos
+        if hasattr(self.ui, 'CampoReferenciaTrabajo'):
+            all_fields_to_clear.append(self.ui.CampoReferenciaTrabajo)
+        if hasattr(self.ui, 'CampoNumeroTicket'):
+            all_fields_to_clear.append(self.ui.CampoNumeroTicket)
+        if hasattr(self.ui, 'CampoColor'):
+            all_fields_to_clear.append(self.ui.CampoColor)
+
+        # Campos de tallas (del 33 al 48)
         for i in range(33, 49):
             field_name = f"CampoTalla_{i}"
             if hasattr(self.ui, field_name):
-                talla_field = getattr(self.ui, field_name)
-                all_fields_to_clear.append(talla_field)
-                cantidad_text = talla_field.text().strip()
-                if cantidad_text:
-                    if cantidad_text.isdigit() and int(cantidad_text) > 0:
-                        cantidad = int(cantidad_text)
-                        tallas_cantidades[str(i)] = cantidad
-                        total_producido_calculado += cantidad
-                        has_any_talla = True
-                    else:
-                        QMessageBox.warning(self, "Entrada Inválida", f"La cantidad para Talla {i} debe ser un número positivo.")
-                        talla_field.setFocus()
-                        return
-        if not has_any_talla:
-            QMessageBox.warning(self, "Campos Incompletos", "Debe ingresar cantidad para al menos una talla.")
-            return
+                all_fields_to_clear.append(getattr(self.ui, field_name))
 
-        # --- Recolección de Valores (Actualizado) ---
-        valores_trabajo = {}
-        # Itera sobre los nuevos tipos y sus campos UI mapeados
-        for work_type, field_attr_name in CAMPOS_VALOR_TRABAJO_MAP.items():
-            if hasattr(self.ui, field_attr_name):
-                valor_field = getattr(self.ui, field_attr_name)
-                all_fields_to_clear.append(valor_field)
-                valor_text = valor_field.text().strip()
-                if valor_text: # Solo procesa si hay valor
-                    try:
-                        valor_float = float(valor_text.replace(',', '.'))
-                        valores_trabajo[work_type] = valor_float # Usa el nombre del trabajo como clave
-                    except ValueError:
-                        QMessageBox.warning(self, "Entrada Inválida", f"El valor para '{work_type}' debe ser un número.")
-                        valor_field.setFocus()
-                        return
-        # --- Fin Recolección de Valores ---
+        # Campos de valores de trabajo
+        # NOTA: Esto asume que la constante CAMPOS_VALOR_TRABAJO_MAP está disponible
+        if 'CAMPOS_VALOR_TRABAJO_MAP' in globals() or hasattr(self, 'CAMPOS_VALOR_TRABAJO_MAP'):
+            # Determina dónde está definida la constante
+            the_map = CAMPOS_VALOR_TRABAJO_MAP if hasattr(self, 'CAMPOS_VALOR_TRABAJO_MAP') else CAMPOS_VALOR_TRABAJO_MAP
+            
+            for field_attr_name in the_map.values():
+                if hasattr(self.ui, field_attr_name):
+                    all_fields_to_clear.append(getattr(self.ui, field_attr_name))
 
-        # --- Generación de Códigos (Actualizado) ---
-        sanitized_ticket_number = ticket_number.replace('/', '_').replace('\\', '_').strip()
-        sanitized_referencia = referencia.replace('/', '_').replace('\\', '_').strip()
-        subfolder_name_for_codes = f"{sanitized_ticket_number}_{sanitized_referencia}".strip('_') or f"trabajo_{str(uuid.uuid4())[:8]}"
+        # 2. Iterar sobre la lista y limpiar cada widget
+        for field_widget in all_fields_to_clear:
+            # QLineEdit, QTextEdit, etc., tienen un método .clear()
+            if hasattr(field_widget, 'clear'):
+                field_widget.clear()
 
-        serial_codes = {}
-        barcode_paths = {} # Este diccionario usará los nombres de trabajo como clave
-        
-        # Itera sobre el diccionario de abreviaturas actualizado
+        # 3. Limpiar la previsualización de la imagen
+        if hasattr(self.ui, 'PreviwImage') and self.ui.PreviwImage.scene() is not None:
+            self.ui.PreviwImage.scene().clear()
+
+        # 4. Poner el foco en el primer campo para facilitar la siguiente entrada
+        if hasattr(self.ui, 'CampoReferenciaTrabajo'):
+            self.ui.CampoReferenciaTrabajo.setFocus()
+            
+        print("Formulario limpiado y listo para la siguiente entrada.")
+
+    def _generate_qr_codes_for_ticket(self, ticket_number, referencia, color, tallas_cantidades, valores_trabajo, subfolder_name):
+        """
+        Responsabilidad: Generar todos los códigos QR para un tiquete específico.
+        AHORA RECIBE TODOS LOS DATOS NECESARIOS.
+        """
+        barcode_paths = {}
         for work_type, abbr in WORK_TYPE_ABBREVIATIONS.items():
-            # SOLO genera código si se ingresó un valor para ese tipo de trabajo
             if work_type in valores_trabajo:
+                # LA LLAMADA CORREGIDA: Pasamos todos los argumentos que la función espera.
+                # Asegúrate de que el orden aquí coincida con la definición de tu función.
+                # Si tu función no usa 'color' o 'tallas_cantidades', puedes quitarlos,
+                # pero el error indica que sí los necesita.
                 serial_code = generate_serial_code(ticket_number, referencia, color, tallas_cantidades, abbr)
-                # Llama a generate_barcode (que genera QR)
-                # PASA el work_type (nombre legible) como clave a barcode_paths
-                barcode_path = generate_barcode(serial_code, subfolder_name=subfolder_name_for_codes)
+                
+                barcode_path = generate_barcode(serial_code, subfolder_name=subfolder_name)
                 if not barcode_path:
-                    QMessageBox.critical(self, "Error", f"Error al generar el código QR para {work_type}.")
-                    return
-                serial_codes[work_type] = serial_code
-                barcode_paths[work_type] = barcode_path # Clave = Nombre del trabajo ("Corte", "Empaque", etc.)
-        # --- Fin Generación de Códigos ---
+                    QMessageBox.critical(self, "Error de QR", f"No se pudo generar el código QR para  (Ticket: ).")
+                    return None
+                barcode_paths[work_type] = barcode_path
+        return barcode_paths
+    def _generate_serial_codes_for_ticket(self, ticket_data: dict) -> dict:
+        """
+        Genera los códigos seriales para todos los tipos de trabajo de un tiquete.
 
-        # --- Guardado en Excel (Tu lógica, pero asegúrate que use valores_trabajo y serial_codes actualizados) ---
-        first_work_type_with_code = next(iter(barcode_paths), None)
-        image_path_for_excel = barcode_paths.get(first_work_type_with_code, "")
+        Esta función NO genera los archivos de imagen QR. Solo crea los strings
+        de los códigos para ser guardados en la base de datos.
 
-        if not self.save_to_excel( # Debes actualizar save_to_excel para manejar las nuevas columnas
-            serial_codes=serial_codes,
-            code_path=image_path_for_excel,
-            ticket_number=ticket_number,
-            referencia=referencia,
-            color=color,
-            tallas_cantidades=tallas_cantidades,
-            total_producido_calculado=total_producido_calculado,
-            valores_trabajo=valores_trabajo
-        ):
-            QMessageBox.critical(self, "Error de Guardado", "No se pudieron guardar los datos en Excel.")
+        Args:
+            ticket_data (dict): Un diccionario con la información del tiquete,
+                                que debe incluir 'ticket_number', 'referencia',
+                                'color', 'tallas_cantidades' y 'valores_trabajo'.
+
+        Returns:
+            dict: Un diccionario mapeando tipo de trabajo a su código serial.
+                Ej: {'Corte': 'TKT-REF-CT-X-123456', ...}
+        """
+        serial_codes = {}
+        
+        # Itera sobre los tipos de trabajo definidos en la clase
+        for work_type, abbr in WORK_TYPE_ABBREVIATIONS.items():
+            # Verifica si este tiquete tiene un valor para este tipo de trabajo
+            if work_type in ticket_data.get('valores_trabajo', {}):
+                
+                # Llama a la función importada desde generateCodes.py
+                code = generate_serial_code(
+                    ticket_data['ticket_number'],
+                    ticket_data['referencia'],
+                    ticket_data['color'],
+                    ticket_data['tallas_cantidades'],
+                    abbr  # Pasa la abreviatura del tipo de trabajo
+                )
+                serial_codes[work_type] = code
+        
+        return serial_codes
+
+    def on_save_button_clicked(self):
+        """
+        Handler principal del botón. Guarda datos de AMBOS tiquetes en Excel,
+        luego genera el PDF de vale doble y los QR.
+        """
+        # 1. Recopilar y validar datos de la UI (TU LÓGICA)
+        base_data = self._gather_and_validate_ui_data()
+        if not base_data:
             return
 
-        # --- Generación de PDF (Actualizado) ---
-        # ¡IMPORTANTE! Asegúrate que generate_vale_pdf ahora usa barcode_paths
-        # con las claves correctas ("Corte", "Empaque", etc.) y que recibe
-        # TIPOS_DE_TRABAJO si lo necesita para iterar.
-        pdf_path = generate_vale_pdf(
-            ticket_number, referencia, tallas_cantidades, color,
-            total_producido_calculado, barcode_paths, valores_trabajo,
-            TIPOS_DE_TRABAJO # Pasa el diccionario con los tipos
+        # 2. Preparar datos para los dos tiquetes (TU LÓGICA)
+        left_ticket_info = base_data.copy()
+        # Asumimos que tienes una función para esto, ej: increment_ticket_number
+        right_ticket_number = increment_ticket_number(base_data['ticket_number'])
+        right_ticket_info = {**base_data, "ticket_number": right_ticket_number}
+
+        # --- 3. GUARDAR AMBOS TIQUETES EN BD Y EXCEL (LÓGICA DE DOBLE GUARDADO) ---
+            
+        for ticket_data in [left_ticket_info, right_ticket_info]:
+            # Preparación de datos para este tiquete (SIN CAMBIOS)
+            id_vale_unico = f"VALE-{ticket_data['ticket_number']}-{uuid.uuid4().hex[:8].upper()}"
+            timestamp = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            estado = "IMPRESO"
+            serial_codes = self._generate_serial_codes_for_ticket(ticket_data) # Asumiendo que refactorizas esto a una función
+            
+            data_to_save = {
+                "id_vale_unico": id_vale_unico,
+                "timestamp": timestamp,
+                "estado": estado,
+                **ticket_data, # Desempaqueta el resto de los datos del tiquete
+                "serial_codes": serial_codes
+            }
+
+            # --- ¡AQUÍ LA LÓGICA DE DOBLE GUARDADO! ---
+
+            # 1. Guardar en la Base de Datos (Prioridad Principal)
+            if not guardar_o_actualizar_trabajo(data_to_save):
+                QMessageBox.critical(self, "Error Crítico de Base de Datos", 
+                                    f"No se pudo guardar el tiquete {ticket_data['ticket_number']} en la base de datos.\n"
+                                    "La operación ha sido cancelada.")
+                return # Detener todo si el guardado principal falla
+
+            # 2. Guardar en Excel (Respaldo)
+            # Este código solo se ejecuta si el guardado en la BD fue exitoso.
+            if not self.save_to_excel(data_to_save):
+                # El dato ya está en la BD, pero informamos del fallo secundario.
+                QMessageBox.warning(self, "Error de Respaldo en Excel", 
+                                    f"El tiquete {ticket_data['ticket_number']} se guardó correctamente en la base de datos, "
+                                    "pero falló al guardar el respaldo en el archivo Excel.\n\n"
+                                    "Por favor, revisa si el archivo 'database.xlsx' está cerrado.")
+                # Decidimos continuar aunque Excel falle, porque la BD es la fuente de verdad.
+                # Si quisieras que fuera un fallo total, cambia 'warning' por 'critical' y añade 'return'.
+        # --- 4. DEFINIR RUTAS DE SALIDA (TU LÓGICA, SIN CAMBIOS) ---
+        pdf_output_dir = "codes"
+        qr_folder_name = f"qr_images_tiquetes_{left_ticket_info['ticket_number']}_{right_ticket_info['ticket_number']}"
+        qr_output_dir = os.path.join(pdf_output_dir, qr_folder_name)
+        os.makedirs(pdf_output_dir, exist_ok=True)
+        safe_ref = base_data['referencia'].replace('/', '-').replace('\\', '_')
+        pdf_filename = os.path.join(pdf_output_dir, f"VALE_DOBLE_{base_data['ticket_number']}_{safe_ref}.pdf")
+
+        # --- 5. GENERAR EL PDF Y LOS CÓDIGOS QR (TU LÓGICA, SIN CAMBIOS) ---
+        # Asumimos que esta función existe y funciona como esperas
+        pdf_path, first_qr_path = generar_vales_pdf(
+            left_ticket_info=left_ticket_info,
+            right_ticket_info=right_ticket_info,
+            output_filename=pdf_filename,
+            qr_output_folder=qr_output_dir
         )
 
         if not pdf_path:
-            QMessageBox.critical(self, "Error", "Datos guardados, pero error al generar PDF.")
+            QMessageBox.critical(self, "Error", "Datos guardados en Excel, pero hubo un error al generar el PDF.")
             return
 
-        # Muestra imagen y mensaje (Tu lógica)
-        if image_path_for_excel:
-            display_code_image(self.ui, image_path_for_excel)
-        else:
-            if hasattr(self.ui, 'PreviwImage') and self.ui.PreviwImage.scene():
-                self.ui.PreviwImage.scene().clear()
-
-        # Asumiendo que self.current_code_type sigue existiendo o se adapta
-        current_code_type = getattr(self, 'current_code_type', 'QR') 
+        # --- 6. FINALIZAR (TU LÓGICA, SIN CAMBIOS) ---
+        if first_qr_path:
+            display_code_image(self.ui, first_qr_path)
 
         QMessageBox.information(
             self, "Operación Exitosa",
-            f"Códigos generados.\n"
-            f"Tipo: {current_code_type.upper()}\n"
-            f"Total Producido: {total_producido_calculado} unidades.\n"
-            f"PDF generado en: {pdf_path}"
+            f"Vale doble generado y datos guardados.\n"
+            f"Total Producido: {base_data['total_producido']} unidades por tiquete.\n"
+            f"Archivos generados en la carpeta: '{pdf_output_dir}'"
         )
 
-        # Limpieza (Tu lógica)
-        for field_widget in all_fields_to_clear:
-            field_widget.clear()
-        if hasattr(self.ui, 'CampoReferenciaTrabajo'):
-            self.ui.CampoReferenciaTrabajo.setFocus()
+        self._clear_all_input_fields()
+        self.autocompletado_manager.actualizar_todos_los_autocompletados()
 
 
     def setup_window(self):
@@ -1244,176 +1427,92 @@ class MainWindow(QMainWindow):
             self.ui.EliminarTODO.setEnabled(True)
             self.ui.EliminarTODO.setText("Eliminar TODO")
 
-
-
-
-
     def on_code_scanned(self):
         """
-        Maneja el evento cuando se escanea o ingresa un código.
-        (Actualizado para usar los nuevos tipos de trabajo)
+        Maneja el evento de escaneo de código, usando la base de datos como fuente.
         """
-        if not hasattr(self.ui, 'codeReaderInput'):
-            print("ERROR: codeReaderInput no encontrado en UI")
-            return
-
         scanned_code = self.ui.codeReaderInput.text().strip()
         if not scanned_code:
             QMessageBox.warning(self, "Entrada Vacía", "Por favor, escanee o ingrese un código válido.")
             return
 
-        # Cargar el archivo Excel
-        try:
-            wb = load_workbook(self.excel_path)
-            ws_trabajos = wb["Trabajos"]
-            ws_vales = wb[self.vales_sheet_name]
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"No se pudo abrir el archivo Excel: {e}")
-            return
-
-        # --- Búsqueda Actualizada ---
-        # Usa los NUEVOS tipos de trabajo para buscar
-        work_types = list(WORK_TYPE_ABBREVIATIONS.keys())
-        work_type_columns = {work_type: f"Código_{work_type}" for work_type in work_types}
-        found_row = None
-        work_type_found = None
-
-        headers = [cell.value for cell in ws_trabajos[1]]
-        # --- Fin Búsqueda Actualizada ---
-
-        # VALIDACIÓN 1: Tabla visual (Tu lógica existente)
-        if hasattr(self.ui, 'tableViewVale') and hasattr(self, 'table_model') and self.table_model.rowCount() > 0:
-            for row_idx in range(self.table_model.rowCount()):
-                item = self.table_model.item(row_idx, 0) # Columna 0 es Código Serial
-                if item and item.text() == scanned_code:
-                    QMessageBox.warning(self, "Vale Duplicado", f"El código '{scanned_code}' ya está en la tabla actual.")
-                    self.ui.codeReaderInput.clear()
-                    self.ui.codeReaderInput.setFocus()
-                    return
-
-        # VALIDACIÓN 2: Hoja "Vales" (Tu lógica existente)
-        if ws_vales.max_row > 1:
-            vales_headers_list = [cell.value for cell in ws_vales[1]]
-            codigo_serial_trabajo_col_name = "Codigo_Serial_Trabajo_Asociado"
-            try:
-                codigo_serial_vales_idx = vales_headers_list.index(codigo_serial_trabajo_col_name)
-                for row_num in range(2, ws_vales.max_row + 1):
-                    cell_value = ws_vales.cell(row=row_num, column=codigo_serial_vales_idx + 1).value
-                    if cell_value == scanned_code:
-                        QMessageBox.warning(self, "Vale Ya Registrado", f"El vale '{scanned_code}' ya fue registrado en Excel.")
-                        self.ui.codeReaderInput.clear()
-                        self.ui.codeReaderInput.setFocus()
-                        return
-            except ValueError:
-                QMessageBox.critical(self, "Error de Configuración", f"La columna '{codigo_serial_trabajo_col_name}' no se encuentra en 'Vales'.")
-                self.ui.codeReaderInput.clear()
-                self.ui.codeReaderInput.setFocus()
-                return
-
-        # Búsqueda en "Trabajos" (Tu lógica existente, pero ahora usa work_type_columns actualizado)
-        for row_num, current_row_values in enumerate(ws_trabajos.iter_rows(min_row=2, values_only=True), start=2):
-            for work_type, column_name in work_type_columns.items():
-                try:
-                    col_idx = headers.index(column_name)
-                    if current_row_values[col_idx] == scanned_code:
-                        found_row = current_row_values
-                        work_type_found = work_type
-                        break
-                except (ValueError, IndexError):
-                    # La columna no existe o hay un problema, lo manejamos más adelante
-                    continue
-            if found_row:
-                break
-
-        if not found_row:
-            QMessageBox.warning(self, "Código No Encontrado", f"El código '{scanned_code}' no se encontró en 'Trabajos'.")
-            self.ui.codeReaderInput.clear()
-            self.ui.codeReaderInput.setFocus()
-            return
-
-        # --- Extracción de Datos Actualizada ---
-        try:
-            def get_value_from_row_safe(header_name, row_data, header_list):
-                try:
-                    idx = header_list.index(header_name)
-                    return row_data[idx]
-                except (ValueError, IndexError):
-                    print(f"Advertencia: Columna '{header_name}' no encontrada.")
-                    return None
-
-            ticket_number = get_value_from_row_safe("Número Ticket", found_row, headers)
-            referencia = get_value_from_row_safe("Referencia", found_row, headers)
-            color = get_value_from_row_safe("Color", found_row, headers)
-            total_producido = get_value_from_row_safe("Total Producido", found_row, headers)
-            # Obtener el valor del trabajo específico encontrado
-            valor_trabajo_especifico = get_value_from_row_safe(f"Valor {work_type_found}", found_row, headers)
-
-            if any(v is None for v in [ticket_number, referencia, color, total_producido, valor_trabajo_especifico]):
-                QMessageBox.critical(self, "Error de Datos", f"Faltan datos esenciales para '{scanned_code}'. Verifique la hoja 'Trabajos'.")
-                return
-
-            tallas_cantidades = {}
-            for i in range(33, 49):
-                cantidad = get_value_from_row_safe(f"Cant_T{i}", found_row, headers)
-                if cantidad and isinstance(cantidad, (int, float)) and cantidad > 0:
-                    tallas_cantidades[str(i)] = int(cantidad)
-            resumen_tallas = "; ".join([f"T{k}:{v}" for k, v in tallas_cantidades.items()]) or "N/A"
-
-        except Exception as e:
-            QMessageBox.critical(self, "Error de Procesamiento", f"Error al procesar datos para '{scanned_code}': {str(e)}")
-            traceback.print_exc()
-            return
-        # --- Fin Extracción de Datos ---
-
-        # Obtener empleado (Tu lógica existente)
-        if not hasattr(self.ui, 'EmpleadosBox'):
-            QMessageBox.critical(self, "Error de UI", "No se encontró el ComboBox de empleados.")
-            return
         empleado_id = self.ui.EmpleadosBox.currentData()
         if not empleado_id:
             QMessageBox.warning(self, "Empleado No Seleccionado", "Por favor, seleccione un empleado.")
             self.ui.EmpleadosBox.setFocus()
             return
 
-        # Crear fila para "Vales" (Tu lógica existente)
-        id_vale = f"V{int(time.time())}{str(uuid.uuid4())[:4]}"
-        fecha_hora_actual = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        vale_row = [
-            id_vale, empleado_id, fecha_hora_actual, ticket_number, referencia,
-            color, resumen_tallas, total_producido, valor_trabajo_especifico,
-            scanned_code, work_type_found
-        ]
+        # VALIDACIÓN 1: ¿Ya está en la tabla visual de la sesión actual?
+        for row in range(self.table_model.rowCount()):
+            item = self.table_model.item(row, 0) # Columna 0 es 'Código Serial'
+            if item and item.text() == scanned_code:
+                QMessageBox.warning(self, "Código Duplicado", f"El código '{scanned_code}' ya fue agregado en esta sesión.")
+                self.ui.codeReaderInput.clear()
+                self.ui.codeReaderInput.setFocus()
+                return
 
-        # Guardar en "Vales" (Tu lógica existente)
-        try:
-            ws_vales.append(vale_row)
-            wb.save(self.excel_path)
-            QMessageBox.information(self, "Vale Registrado", f"Vale {id_vale} registrado para {work_type_found}.")
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"No se pudo guardar el vale en Excel: {e}")
+        # VALIDACIÓN 2: ¿Ya existe un vale para este empleado y código en la BD?
+        if vale_existe(scanned_code, empleado_id):
+            QMessageBox.warning(self, "Vale Ya Registrado", f"Ya existe un vale para este empleado con el código '{scanned_code}'.")
+            self.ui.codeReaderInput.clear()
+            self.ui.codeReaderInput.setFocus()
             return
 
-        # --- Actualizar Tabla Visual (Actualizado) ---
-        if hasattr(self.ui, 'tableViewVale'):
-            # Crear la fila con los datos en el ORDEN CORRECTO
-            # (Asegúrate que este orden coincida con el de setup_code_reader)
+        # BÚSQUEDA DEL TRABAJO EN LA BASE DE DATOS
+        resultado_busqueda = buscar_trabajo_por_codigo_serial(scanned_code)
+        if not resultado_busqueda:
+            # ... (mensaje de error) ...
+            return
+
+        trabajo_data, work_type_found_id = resultado_busqueda # ej: 'corte'
+
+        # --- Obtener el nombre de display desde la configuración central ---
+        # Es más seguro usar .get() para evitar errores si algo sale mal
+        work_type_info = WORK_TYPES.get(work_type_found_id)
+        if not work_type_info:
+            QMessageBox.critical(self, "Error de Configuración", f"El tipo de trabajo '{work_type_found_id}' no está en config.py.")
+            return
+            
+        work_type_display = work_type_info['display'] # ej: 'Corte'
+        
+        # Calcular el valor a pagar para este vale específico
+        valor_columna = f'valor_{work_type_found_id}' # ej: 'valor_corte'
+        valor_pagado = trabajo_data.get(valor_columna, 0.0)
+
+        # CREACIÓN DEL VALE EN LA BASE DE DATOS
+        datos_vale = {
+            'empleado_id': empleado_id,
+            'codigo_serial_trabajo_asociado': scanned_code,
+            'work_type_detected': work_type_display,
+            'valor_pagado': valor_pagado
+        }
+        
+        if not crear_vale(datos_vale):
+            QMessageBox.critical(self, "Error al Guardar", "No se pudo registrar el vale en la base de datos. Revise la consola para más detalles.")
+            return
+
+        # ACTUALIZACIÓN DE LA TABLA VISUAL
+        try:
+            # Los datos para la fila deben coincidir con las cabeceras definidas en setup_code_reader
             row_data = [
                 scanned_code,
-                ticket_number,
-                referencia,
-                work_type_found, # Tipo de Trabajo encontrado
-                color,
-                total_producido
+                str(trabajo_data.get('numero_ticket', '')),
+                str(trabajo_data.get('referencia', '')),
+                work_type_display,
+                str(trabajo_data.get('color', '')),
+                str(trabajo_data.get('total_producido', 0)),
+                f"{valor_pagado:.2f}" # Formatear el valor monetario
             ]
-            # Añadir todos los valores de trabajo, estén o no en la fila
-            for wt in WORK_TYPE_ABBREVIATIONS.keys():
-                row_data.append(get_value_from_row_safe(f"Valor {wt}", found_row, headers))
-
-            items = [QtGui.QStandardItem(str(value) if value is not None else "") for value in row_data]
+            items = [QtGui.QStandardItem(value) for value in row_data]
             self.table_model.appendRow(items)
-        # --- Fin Actualizar Tabla Visual ---
+            
+            QMessageBox.information(self, "Vale Registrado", f"Vale para '{work_type_display}' registrado exitosamente.")
 
-        # Limpiar campo (Tu lógica existente)
+        except Exception as e:
+            QMessageBox.critical(self, "Error de UI", f"Error al actualizar la tabla visual: {e}")
+            traceback.print_exc()
+
+        # Limpiar para el siguiente escaneo
         self.ui.codeReaderInput.clear()
         self.ui.codeReaderInput.setFocus()
 
@@ -1592,11 +1691,235 @@ class MainWindow(QMainWindow):
     def resizeFunction(self):
         """Log window size on resize"""
         print('Height: ' + str(self.height()) + ' | Width: ' + str(self.width()))
+## ==> GLOBALS
+GLOBAL_STATE = 0
+GLOBAL_TITLE_BAR = True
+
+## ==> COUT INITIAL MENU
+count = 1
+
+class UIFunctions(MainWindow):
+
+    ## ==> GLOBALS
+    GLOBAL_STATE = 0
+    GLOBAL_TITLE_BAR = True
+
+    ########################################################################
+    ## START - GUI FUNCTIONS
+    ########################################################################
+
+    ## ==> MAXIMIZE/RESTORE
+    ########################################################################
+    def maximize_restore(self):
+        global GLOBAL_STATE
+        status = GLOBAL_STATE
+        if status == 0:
+            self.showMaximized()
+            GLOBAL_STATE = 1
+            self.ui.horizontalLayout.setContentsMargins(0, 0, 0, 0)
+            self.ui.btn_maximize_restore.setToolTip("Restore")
+            self.ui.btn_maximize_restore.setIcon(QtGui.QIcon(u":/16x16/icons/16x16/cil-window-restore.png"))
+            self.ui.frame_top_btns.setStyleSheet("background-color: rgb(27, 29, 35)")
+            self.ui.frame_size_grip.hide()
+        else:
+            GLOBAL_STATE = 0
+            self.showNormal()
+            self.resize(self.width()+1, self.height()+1)
+            self.ui.horizontalLayout.setContentsMargins(10, 10, 10, 10)
+            self.ui.btn_maximize_restore.setToolTip("Maximize")
+            self.ui.btn_maximize_restore.setIcon(QtGui.QIcon(u":/16x16/icons/16x16/cil-window-maximize.png"))
+            self.ui.frame_top_btns.setStyleSheet("background-color: rgba(27, 29, 35, 200)")
+            self.ui.frame_size_grip.show()
+
+    ## ==> RETURN STATUS
+    def returStatus():
+        return GLOBAL_STATE
+
+    ## ==> SET STATUS
+    def setStatus(status):
+        global GLOBAL_STATE
+        GLOBAL_STATE = status
+
+    ## ==> ENABLE MAXIMUM SIZE
+    ########################################################################
+    def enableMaximumSize(self, width, height):
+        if width != '' and height != '':
+            self.setMaximumSize(QSize(width, height))
+            self.ui.frame_size_grip.hide()
+            self.ui.btn_maximize_restore.hide()
+
+
+    ## ==> TOGGLE MENU
+    ########################################################################
+    def toggleMenu(self, maxWidth, enable):
+        if enable:
+            # GET WIDTH
+            width = self.ui.frame_left_menu.width()
+            maxExtend = maxWidth
+            standard = 70
+
+            # SET MAX WIDTH
+            if width == 70:
+                widthExtended = maxExtend
+            else:
+                widthExtended = standard
+
+            # ANIMATION
+            self.animation = QPropertyAnimation(self.ui.frame_left_menu, b"minimumWidth")
+            self.animation.setDuration(300)
+            self.animation.setStartValue(width)
+            self.animation.setEndValue(widthExtended)
+            self.animation.setEasingCurve(QtCore.QEasingCurve.InOutQuart)
+            self.animation.start()
+
+    ## ==> SET TITLE BAR
+    ########################################################################
+    def removeTitleBar(status):
+        global GLOBAL_TITLE_BAR
+        GLOBAL_TITLE_BAR = status
+
+    ## ==> HEADER TEXTS
+    ########################################################################
+    # LABEL TITLE
+    def labelTitle(self, text):
+        self.ui.label_title_bar_top.setText(text)
+
+    # LABEL DESCRIPTION
+    def labelDescription(self, text):
+        self.ui.label_top_info_1.setText(text)
+
+    ## ==> DYNAMIC MENUS
+    ########################################################################
+    def addNewMenu(self, name, objName, icon, isTopMenu):
+        font = QFont()
+        font.setFamily(u"Segoe UI")
+        button = QPushButton(str(count),self)
+        button.setObjectName(objName)
+        sizePolicy3 = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        sizePolicy3.setHorizontalStretch(0)
+        sizePolicy3.setVerticalStretch(0)
+        sizePolicy3.setHeightForWidth(button.sizePolicy().hasHeightForWidth())
+        button.setSizePolicy(sizePolicy3)
+        button.setMinimumSize(QSize(0, 70))
+        button.setLayoutDirection(Qt.LeftToRight)
+        button.setFont(font)
+        button.setStyleSheet(Style.style_bt_standard.replace('ICON_REPLACE', icon))
+        button.setText(name)
+        button.setToolTip(name)
+        button.clicked.connect(self.Button)
+
+        if isTopMenu:
+            self.ui.layout_menus.addWidget(button)
+        else:
+            self.ui.layout_menu_bottom.addWidget(button)
+
+    ## ==> SELECT/DESELECT MENU
+    ########################################################################
+    ## ==> SELECT
+    def selectMenu(getStyle):
+        select = getStyle + ("QPushButton { border-right: 7px solid rgb(44, 49, 60); }")
+        return select
+
+    ## ==> DESELECT
+    def deselectMenu(getStyle):
+        deselect = getStyle.replace("QPushButton { border-right: 7px solid rgb(44, 49, 60); }", "")
+        return deselect
+
+    ## ==> START SELECTION
+    def selectStandardMenu(self, widget):
+        for w in self.ui.frame_left_menu.findChildren(QPushButton):
+            if w.objectName() == widget:
+                w.setStyleSheet(UIFunctions.selectMenu(w.styleSheet()))
+
+    ## ==> RESET SELECTION
+    def resetStyle(self, widget):
+        for w in self.ui.frame_left_menu.findChildren(QPushButton):
+            if w.objectName() != widget:
+                w.setStyleSheet(UIFunctions.deselectMenu(w.styleSheet()))
+
+    ## ==> CHANGE PAGE LABEL TEXT
+    def labelPage(self, text):
+        newText = '| ' + text.upper()
+        self.ui.label_top_info_2.setText(newText)
+
+    ## ==> USER ICON
+    ########################################################################
+    # def userIcon(self, initialsTooltip, icon, showHide):
+    #     if showHide:
+    #         # SET TEXT
+    #         self.ui.label_user_icon.setText(initialsTooltip)
+
+    #         # SET ICON
+    #         if icon:
+    #             style = self.ui.label_user_icon.styleSheet()
+    #             setIcon = "QLabel { background-image: " + icon + "; }"
+    #             self.ui.label_user_icon.setStyleSheet(style + setIcon)
+    #             self.ui.label_user_icon.setText('')
+    #             self.ui.label_user_icon.setToolTip(initialsTooltip)
+    #     else:
+    #         self.ui.label_user_icon.hide()
+
+    ########################################################################
+    ## END - GUI FUNCTIONS
+    ########################################################################
+
+
+    ########################################################################
+    ## START - GUI DEFINITIONS
+    ########################################################################
+
+    ## ==> UI DEFINITIONS
+    ########################################################################
+    def uiDefinitions(self):
+        def dobleClickMaximizeRestore(event):
+            # IF DOUBLE CLICK CHANGE STATUS
+            if event.type() == QtCore.QEvent.MouseButtonDblClick:
+                QtCore.QTimer.singleShot(250, lambda: UIFunctions.maximize_restore(self))
+
+        ## REMOVE ==> STANDARD TITLE BAR
+        if GLOBAL_TITLE_BAR:
+            self.setWindowFlags(QtCore.Qt.FramelessWindowHint)
+            self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
+            self.ui.frame_label_top_btns.mouseDoubleClickEvent = dobleClickMaximizeRestore
+        else:
+            self.ui.horizontalLayout.setContentsMargins(0, 0, 0, 0)
+            self.ui.frame_label_top_btns.setContentsMargins(8, 0, 0, 5)
+            self.ui.frame_label_top_btns.setMinimumHeight(42)
+            self.ui.frame_icon_top_bar.hide()
+            self.ui.frame_btns_right.hide()
+            self.ui.frame_size_grip.hide()
+
+
+        ## SHOW ==> DROP SHADOW
+        self.shadow = QGraphicsDropShadowEffect(self)
+        self.shadow.setBlurRadius(17)
+        self.shadow.setXOffset(0)
+        self.shadow.setYOffset(0)
+        self.shadow.setColor(QColor(0, 0, 0, 150))
+        self.ui.frame_main.setGraphicsEffect(self.shadow)
+
+        ## ==> RESIZE WINDOW
+        self.sizegrip = QSizeGrip(self.ui.frame_size_grip)
+        self.sizegrip.setStyleSheet("width: 20px; height: 20px; margin 0px; padding: 0px;")
+
+        ### ==> MINIMIZE
+        self.ui.btn_minimize.clicked.connect(lambda: self.showMinimized())
+
+        ## ==> MAXIMIZE/RESTORE
+        self.ui.btn_maximize_restore.clicked.connect(lambda: UIFunctions.maximize_restore(self))
+
+        ## SHOW ==> CLOSE APPLICATION
+        self.ui.btn_close.clicked.connect(lambda: self.close())
+
+
+    ########################################################################
+    ## END - GUI DEFINITIONS
+    ########################################################################
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     QtGui.QFontDatabase.addApplicationFont('fonts/segoeui.ttf')
     QtGui.QFontDatabase.addApplicationFont('fonts/segoeuib.ttf')
     window = MainWindow()
-
+    init_db()
     sys.exit(app.exec_())

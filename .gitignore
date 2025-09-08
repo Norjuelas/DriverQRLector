@@ -14,3 +14,4 @@ backups_eliminados/
 build/main/
 **/dist/
 
+app.db

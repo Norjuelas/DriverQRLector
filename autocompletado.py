@@ -1,205 +1,205 @@
-# autocompletado.py
+import sqlite3
+from typing import Dict, Any, List
 
-from PySide2.QtWidgets import QCompleter  # MODIFICADO
-from PySide2.QtCore import Qt             # MODIFICADO
-import pandas as pd
-import os
+# Dependencias de Qt (no cambian)
+from PySide2.QtWidgets import QCompleter
+from PySide2.QtCore import Qt
+
+# Importamos la función para obtener la conexión a la base de datos
+from db import get_conn 
+# Importamos la lista de columnas válidas para validación
+from dao import VALID_TRABAJO_COLUMNS, VALID_VALE_COLUMNS#, VALID_EMPLEADO_COLUMNS # Asumo que VALID_EMPLEADO_COLUMNS existe o la creamos
+
+# --- Listas blancas de columnas para validación de seguridad ---
+# Esto previene inyección SQL al construir consultas dinámicamente.
+# El manager solo podrá consultar tablas y columnas definidas aquí.
+VALID_COLUMNS_BY_TABLE = {
+    "trabajos": VALID_TRABAJO_COLUMNS,
+    "vales": VALID_VALE_COLUMNS,
+    # "empleados": VALID_EMPLEADO_COLUMNS, # Necesitarás añadir esta lista en dao.py
+}
+
 
 class AutocompletadoManager:
     """
-    Clase para manejar el autocompletado de QLineEdit basado en datos de Excel
+    Clase para manejar el autocompletado de QLineEdit basado en datos 
+    de una base de datos SQLite.
     """
-    
-    def __init__(self, excel_path, sheet_name="Trabajos"):
+
+    def __init__(self):
         """
-        Inicializar el manager de autocompletado
-        
+        Inicializar el manager de autocompletado.
+        No necesita argumentos ya que la conexión a la BD se obtiene a demanda.
+        """
+        # Almacena las configuraciones para poder actualizarlas todas a la vez.
+        # Formato: { 'campo_id': {'line_edit': QLineEdit, 'tabla': str, 'columna': str} }
+        self.campos_configurados: Dict[str, Dict[str, Any]] = {}
+
+    def obtener_valores_unicos(self, tabla: str, columna: str) -> List[str]:
+        """
+        Obtiene valores únicos de una columna y tabla específicas de la base de datos.
+
         Args:
-            excel_path (str): Ruta al archivo Excel
-            sheet_name (str): Nombre de la hoja de Excel
-        """
-        self.excel_path = excel_path
-        self.sheet_name = sheet_name
-        self.completers = {}  # Diccionario para almacenar los completers por campo
-        
-    def obtener_valores_unicos(self, columna):
-        """
-        Obtener valores únicos de una columna específica del Excel
-        
-        Args:
-            columna (str): Nombre de la columna
-            
+            tabla (str): Nombre de la tabla a consultar (ej. "trabajos").
+            columna (str): Nombre de la columna (ej. "referencia").
+
         Returns:
-            list: Lista de valores únicos
+            list: Lista de valores únicos como strings.
         """
-        try:
-            if not os.path.exists(self.excel_path):
-                print(f"Advertencia: El archivo Excel no se encuentra en {self.excel_path}")
-                return []
-            
-            df = pd.read_excel(self.excel_path, sheet_name=self.sheet_name)
-            
-            if columna not in df.columns:
-                print(f"Advertencia: La columna '{columna}' no se encuentra en la hoja '{self.sheet_name}'.")
-                return []
-                
-            # Obtener valores únicos, filtrar nulos y convertir a string
-            valores = df[columna].dropna().unique()
-            return [str(valor).strip() for valor in valores if str(valor).strip()]
-            
-        except Exception as e:
-            print(f"Error al obtener valores de {columna}: {e}")
+        # --- Validación de seguridad ---
+        if tabla not in VALID_COLUMNS_BY_TABLE:
+            print(f"Error de seguridad: La tabla '{tabla}' no está permitida para consultas.")
             return []
-    
-    def configurar_autocompletado(self, line_edit, columna, campo_id=None):
+        if columna not in VALID_COLUMNS_BY_TABLE[tabla]:
+            print(f"Error de seguridad: La columna '{columna}' no está permitida en la tabla '{tabla}'.")
+            return []
+
+        try:
+            # Construcción segura de la consulta
+            sql = f"SELECT DISTINCT {columna} FROM {tabla} WHERE {columna} IS NOT NULL AND {columna} != ''"
+            
+            with get_conn() as conn:
+                cursor = conn.cursor()
+                cursor.execute(sql)
+                # fetchall() devuelve una lista de tuplas, ej: [('valor1',), ('valor2',)]
+                # La convertimos a una lista plana de strings.
+                valores = [str(row[0]).strip() for row in cursor.fetchall()]
+            
+            return valores
+
+        except sqlite3.Error as e:
+            print(f"Error de base de datos al obtener valores para '{tabla}.{columna}': {e}")
+            return []
+
+    def configurar_autocompletado(self, line_edit, tabla: str, columna: str, campo_id: str = None):
         """
-        Configurar autocompletado para un QLineEdit específico
-        
+        Configura el autocompletado para un QLineEdit específico.
+
         Args:
-            line_edit: Widget QLineEdit (debe ser PySide2.QtWidgets.QLineEdit)
-            columna (str): Nombre de la columna en Excel
-            campo_id (str): ID único para el campo (opcional)
+            line_edit: Widget QLineEdit a configurar.
+            tabla (str): Nombre de la tabla en la base de datos.
+            columna (str): Nombre de la columna en la base de datos.
+            campo_id (str, optional): ID único para el campo. Si es None, se usa el nombre de la columna.
         """
         if campo_id is None:
             campo_id = columna
+        
+        # Guardar la configuración para futuras actualizaciones
+        self.campos_configurados[campo_id] = {
+            'line_edit': line_edit,
+            'tabla': tabla,
+            'columna': columna
+        }
             
-        valores = self.obtener_valores_unicos(columna)
+        valores = self.obtener_valores_unicos(tabla, columna)
+
+        # Usar el método de actualización, que es más robusto y evita duplicar código
+        self.actualizar_autocompletado(line_edit, tabla, columna, valores_precalculados=valores)
         
-        if not valores:
-            # print(f"No se encontraron valores para autocompletar en la columna '{columna}'.")
-            # Es normal que no haya valores a veces, así que un print puede ser mucho log.
-            # Considera si quieres un log aquí o no.
-            # Si el QLineEdit ya tiene un completer, podríamos querer limpiarlo
-            # o dejarlo como está si los valores estaban vacíos previamente.
-            # Por ahora, si no hay valores, no se asigna ni actualiza el completer.
-            # Si se desea limpiar un completer existente si no hay nuevos valores:
-            # current_completer = line_edit.completer()
-            # if current_completer:
-            #     line_edit.setCompleter(None) # o un QCompleter([]) vacío
-            return
-            
-        # Crear completer (ahora será un PySide2.QtWidgets.QCompleter)
-        completer = QCompleter(valores)
-        completer.setCaseSensitivity(Qt.CaseInsensitive)  # No distingue mayúsculas/minúsculas
-        completer.setFilterMode(Qt.MatchContains)  # Sugerencias si contiene, no solo si empieza igual
-        completer.setCompletionMode(QCompleter.PopupCompletion)
+        # --- Conexión al evento focusInEvent para auto-actualización ---
+        # Sobrescribir el método de evento es arriesgado y puede causar problemas.
+        # Es mucho más seguro y robusto conectarse a una señal si el widget la tuviera
+        # o, en este caso, usar un event filter en la ventana principal.
+        # Sin embargo, para mantener la lógica original, la adaptamos de forma más segura.
         
-        # Asignar completer al line_edit
-        line_edit.setCompleter(completer)
-        
-        self.completers[campo_id] = completer
-        
-        # Guardar el método original de focusInEvent si existe, para no sobreescribir otros comportamientos
         original_focus_in_event = line_edit.focusInEvent
         
-        # Conectar evento de focus para actualizar automáticamente
-        # Es importante que 'original_focus_in_event' y 'line_edit' se capturen correctamente en el lambda
-        line_edit.focusInEvent = lambda event, captured_original_event=original_focus_in_event, captured_line_edit=line_edit, captured_columna=columna, captured_campo_id=campo_id: \
-                                 self._on_focus_in(event, captured_original_event, captured_line_edit, captured_columna, captured_campo_id)
-    
-    def _on_focus_in(self, event, original_event_handler, line_edit, columna, campo_id):
-        """
-        Evento que se ejecuta cuando el QLineEdit recibe focus
-        """
-        # Ejecutar el evento original si existe
-        if callable(original_event_handler):
-            original_event_handler(event)
+        def new_focus_in_event(event):
+            # Llama al manejador original si existía
+            original_focus_in_event(event)
+            # Luego, ejecuta nuestra lógica de actualización
+            self.actualizar_autocompletado(line_edit, tabla, columna)
         
-        # Actualizar autocompletado
-        self.actualizar_autocompletado(line_edit, columna, campo_id)
-    
-    def actualizar_autocompletado(self, line_edit, columna, campo_id=None):
+        # Reemplaza el manejador de eventos del widget
+        line_edit.focusInEvent = new_focus_in_event
+
+    def actualizar_autocompletado(self, line_edit, tabla: str, columna: str, valores_precalculados: List[str] = None):
         """
-        Actualizar el autocompletado de un campo específico
-        
+        Actualiza la lista de sugerencias para un QLineEdit específico.
+        Es más eficiente que re-crear el completer cada vez.
+
         Args:
-            line_edit: Widget QLineEdit
-            columna (str): Nombre de la columna en Excel
-            campo_id (str): ID único para el campo (opcional)
+            line_edit: Widget QLineEdit a actualizar.
+            tabla (str): Nombre de la tabla.
+            columna (str): Nombre de la columna.
+            valores_precalculados (List[str], optional): Si ya se tienen los valores, se usan estos.
+                                                          Si no, se consultan de la BD.
         """
-        if campo_id is None:
-            campo_id = columna
-            
-        nuevos_valores = self.obtener_valores_unicos(columna)
-        
-        if not nuevos_valores:
-            # Si no hay nuevos valores, podríamos optar por limpiar el completer actual
-            # o mantener las sugerencias anteriores si es preferible.
-            # Para limpiar:
-            # current_completer = line_edit.completer()
-            # if current_completer:
-            #    current_completer.model().setStringList([]) # Vaciar la lista del modelo actual
-            # O simplemente no hacer nada si no hay nuevos valores y se quiere mantener el estado.
-            # print(f"No se encontraron nuevos valores para actualizar autocompletado de '{columna}'.")
-            return
-            
-        # Obtener el completer existente o crear uno nuevo
+        if valores_precalculados is not None:
+            nuevos_valores = valores_precalculados
+        else:
+            nuevos_valores = self.obtener_valores_unicos(tabla, columna)
+
         completer = line_edit.completer()
         if completer:
-            # Si ya existe un completer, simplemente actualizamos su modelo (la lista de strings)
-            # Esto es más eficiente que crear un nuevo QCompleter cada vez.
+            # Si ya existe, solo actualizamos el modelo (la lista de palabras)
             model = completer.model()
             model.setStringList(nuevos_valores)
         else:
-            # Si no hay completer, creamos uno nuevo y lo asignamos
+            # Si no existe, lo creamos y configuramos desde cero
+            if not nuevos_valores:
+                return # No crear un completer si no hay valores iniciales
+                
             completer = QCompleter(nuevos_valores)
             completer.setCaseSensitivity(Qt.CaseInsensitive)
             completer.setFilterMode(Qt.MatchContains)
             completer.setCompletionMode(QCompleter.PopupCompletion)
             line_edit.setCompleter(completer)
-        
-        # Actualizar referencia (si es que esto es necesario fuera de la asignación inicial)
-        self.completers[campo_id] = completer # Asegura que self.completers tenga el completer más reciente
-    
+
     def actualizar_todos_los_autocompletados(self):
         """
-        Actualizar todos los autocompletados configurados.
-        Esto requiere que guardemos la información de line_edit y columna asociada a cada campo_id
-        si queremos llamar a actualizar_autocompletado.
-        Por ahora, esta función no está completamente implementada para una actualización general
-        sin tener las referencias directas a los line_edits y sus columnas asociadas.
+        Actualiza las listas de sugerencias para todos los campos configurados.
+        Ideal para llamar después de guardar un nuevo registro que podría
+        contener nuevos valores para autocompletar.
         """
-        # Para implementar esto correctamente, necesitarías almacenar el line_edit y la columna
-        # junto con el completer, o tener una forma de recuperarlos a partir de campo_id.
-        # Ejemplo de cómo podría ser si guardaras más info:
-        # for campo_id, data in self.completer_info.items(): # Suponiendo que completer_info guarda {'line_edit': ..., 'columna': ...}
-        #     self.actualizar_autocompletado(data['line_edit'], data['columna'], campo_id)
-        print("La función 'actualizar_todos_los_autocompletados' necesita ser expandida para ser funcional.")
-        pass # Implementación pendiente si es necesaria
-    
-    def configurar_multiples_campos(self, campos_config):
+        print("Actualizando todas las listas de autocompletado...")
+        for campo_id, config in self.campos_configurados.items():
+            print(f" -> Actualizando '{campo_id}' ({config['tabla']}.{config['columna']})")
+            self.actualizar_autocompletado(
+                line_edit=config['line_edit'],
+                tabla=config['tabla'],
+                columna=config['columna']
+            )
+        print("Actualización completada.")
+
+    def configurar_multiples_campos(self, campos_config: Dict[str, Dict[str, Any]]):
         """
-        Configurar múltiples campos de autocompletado de una vez
-        
+        Configura múltiples campos de autocompletado de una vez.
+
         Args:
-            campos_config (dict): Diccionario con configuración de campos
-                                  Formato: {campo_id: {'line_edit': widget, 'columna': 'nombre_columna'}}
+            campos_config (dict): Diccionario con la configuración.
+                Formato: {
+                    'id_campo': {'line_edit': widget, 'tabla': 'nombre_tabla', 'columna': 'nombre_columna'}
+                }
         """
         for campo_id, config in campos_config.items():
             line_edit = config.get('line_edit')
+            tabla = config.get('tabla')
             columna = config.get('columna')
             
-            if not line_edit or not columna:
-                print(f"Advertencia: Configuración incompleta para el campo_id '{campo_id}'. Faltan 'line_edit' o 'columna'.")
+            if not all([line_edit, tabla, columna]):
+                print(f"Advertencia: Configuración incompleta para '{campo_id}'. Se omitió.")
                 continue
-                
-            self.configurar_autocompletado(line_edit, columna, campo_id)
             
-    def obtener_todos_los_trabajos(self):
+            self.configurar_autocompletado(line_edit, tabla, columna, campo_id)
+
+    def obtener_todos_los_trabajos(self) -> List[Dict[str, Any]]:
         """
-        Obtener información completa de todos los trabajos
-        
+        Obtiene todos los registros de la tabla 'trabajos' como una lista de diccionarios.
+
         Returns:
-            list: Lista de diccionarios con información de trabajos
+            list: Lista de diccionarios, donde cada uno es un trabajo.
         """
         try:
-            if not os.path.exists(self.excel_path):
-                print(f"Advertencia: El archivo Excel no se encuentra en {self.excel_path} al intentar obtener todos los trabajos.")
-                return []
-            
-            df = pd.read_excel(self.excel_path, sheet_name=self.sheet_name)
-            return df.to_dict('records')
-            
-        except Exception as e:
-            print(f"Error al obtener trabajos: {e}")
+            with get_conn() as conn:
+                # Usar Row Factory para obtener resultados como diccionarios
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM trabajos ORDER BY numero_ticket DESC")
+                
+                # Convertir cada objeto `sqlite3.Row` a un diccionario estándar
+                trabajos = [dict(row) for row in cursor.fetchall()]
+            return trabajos
+        except sqlite3.Error as e:
+            print(f"Error de base de datos al obtener todos los trabajos: {e}")
             return []

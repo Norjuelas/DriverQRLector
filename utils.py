@@ -46,3 +46,4 @@ def display_code_image(ui,image_path):
         print(f"Error al mostrar la imagen: {str(e)}")
         QMessageBox.critical("Error", f"Error al mostrar la imagen: {str(e)}")
         return False
+    
